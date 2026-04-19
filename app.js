@@ -1055,9 +1055,15 @@ async function showAppScreen() {
       const oldId = localStorage.getItem('spreadsheetId');
       if (oldId) { spreadsheetId = oldId; spreadsheetName = ''; }
     }
-    if (spreadsheetId) await loadHabitsFromSheet();
+    if (spreadsheetId) {
+      await loadHabitsFromSheet();
+    } else {
+      // シート未接続でも常にデフォルト習慣を表示する
+      habits = DEFAULT_HABITS.map(h => ({ ...h }));
+    }
   } catch (e) {
     console.warn('Could not load from saved sheet:', e);
+    habits = DEFAULT_HABITS.map(h => ({ ...h }));
   }
 
   updateDateDisplay();
