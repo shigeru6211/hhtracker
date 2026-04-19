@@ -29,7 +29,7 @@ const DEFAULT_HABITS = [
   { id: 'rc12', name: 'Stretch',          type: 'stars', icon: '🧘',  prevDayCarryover: false, category: 'Health' },
   { id: 'rc13', name: 'Meal amount',      type: 'stars', icon: '🍽️', prevDayCarryover: false, category: 'Health' },
   { id: 'rc14', name: 'Rheumatoid',       type: 'stars', icon: '🦵',  prevDayCarryover: false, category: 'Health' },
-  { id: 'rc15', name: 'Rheumatoid(Area)', type: 'memo',  icon: '🦵',  prevDayCarryover: false, category: 'Health' },
+  { id: 'rc15', name: 'Rheumatoid(Area)', type: 'memo',  icon: '🦵',  prevDayCarryover: true,  category: 'Health' },
 ];
 const SHEET_NAME = 'Records';
 const SETTINGS_SHEET = 'Settings';
@@ -404,6 +404,16 @@ async function loadHabitsFromSheet() {
       await saveHabitsToSheet();
     } else {
       habits = loaded;
+      // 前日引き継ぎ設定のパッチ適用（シート保存済みの設定を自動修正）
+      const CARRYOVER_PATCHES = { 'Rheumatoid(Area)': true };
+      let patched = false;
+      habits.forEach(h => {
+        if (h.name in CARRYOVER_PATCHES && h.prevDayCarryover !== CARRYOVER_PATCHES[h.name]) {
+          h.prevDayCarryover = CARRYOVER_PATCHES[h.name];
+          patched = true;
+        }
+      });
+      if (patched) await saveHabitsToSheet();
     }
     renderHabits();
     renderHabitsSettings();
