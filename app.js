@@ -607,6 +607,7 @@ function renderHabitControl(habit) {
       todayData[habit.name] = ta.value;
       ta.classList.remove('is-default');
       ctrl.querySelector('.default-badge')?.remove();
+      scheduleSave();
     });
     ctrl.appendChild(ta);
     if (isDefault) {
@@ -623,6 +624,7 @@ function renderHabitControl(habit) {
     cb.checked = val === '1' || val === 'true' || val === 'TRUE';
     cb.addEventListener('change', () => {
       todayData[habit.name] = cb.checked ? '1' : '0';
+      scheduleSave();
     });
     ctrl.appendChild(cb);
   }
@@ -633,6 +635,7 @@ function setStarRating(habit, rating) {
   const current = parseInt(todayData[habit.name]) || 0;
   todayData[habit.name] = current === rating ? '0' : String(rating);
   renderHabitControl(habit);
+  scheduleSave();
 }
 
 function defaultIcon(type) {
@@ -676,6 +679,7 @@ function renderAlcoholRating() {
       const current = parseInt(todayData['飲酒量']) || 0;
       todayData['飲酒量'] = current === i ? '0' : String(i);
       renderAlcoholRating();
+      scheduleSave();
     });
     div.appendChild(btn);
   }
@@ -1417,6 +1421,16 @@ async function importRhythmCareCSV(file) {
   return importRows.length;
 }
 
+// ===== AUTO SAVE =====
+let _saveTimer = null;
+
+// 変更後1.5秒で自動保存（連続変更はリセット）
+function scheduleSave() {
+  clearTimeout(_saveTimer);
+  $('save-status').textContent = '編集中...';
+  _saveTimer = setTimeout(() => saveDayData(), 1500);
+}
+
 // ===== UTILITY =====
 function genId() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -1475,6 +1489,7 @@ function attachEvents() {
     $(id).addEventListener('input', e => {
       e.target.classList.remove('is-default');
       e.target.parentElement.querySelector('.default-badge')?.remove();
+      scheduleSave();
     });
   });
 
