@@ -12,6 +12,25 @@ const SPREADSHEET_TITLE = 'HHTracker';
 const CATEGORIES = ['Health', 'Learning', 'Other'];
 // 旧カテゴリ名（日本語）→新カテゴリ名（英語）のマイグレーションマップ
 const CATEGORY_MIGRATION = { '健康': 'Health', '学習': 'Learning', 'その他': 'Other' };
+
+// RhythmCareから移行したデフォルト習慣（新規シート作成時に自動セット）
+const DEFAULT_HABITS = [
+  { id: 'rc01', name: 'Panic',             type: 'stars', icon: '❤️',  prevDayCarryover: false, category: 'Health' },
+  { id: 'rc02', name: 'Evios',             type: 'stars', icon: '💊',  prevDayCarryover: false, category: 'Health' },
+  { id: 'rc03', name: 'Journey',           type: 'check', icon: '✍️',  prevDayCarryover: false, category: 'Other' },
+  { id: 'rc04', name: 'English(Anki)',     type: 'stars', icon: '🎧',  prevDayCarryover: false, category: 'Learning' },
+  { id: 'rc05', name: 'English(ChatGPT)', type: 'stars', icon: '🗣️',  prevDayCarryover: false, category: 'Learning' },
+  { id: 'rc06', name: 'English(Podcast)', type: 'stars', icon: '🎧',  prevDayCarryover: false, category: 'Learning' },
+  { id: 'rc07', name: 'English(WSQ)',     type: 'check', icon: '🌍',  prevDayCarryover: false, category: 'Learning' },
+  { id: 'rc08', name: 'English(Speak)',   type: 'stars', icon: '🗣️',  prevDayCarryover: false, category: 'Learning' },
+  { id: 'rc09', name: 'AP',               type: 'stars', icon: '📚',  prevDayCarryover: false, category: 'Learning' },
+  { id: 'rc10', name: 'Gym/HIIT',         type: 'stars', icon: '💪',  prevDayCarryover: false, category: 'Health' },
+  { id: 'rc11', name: 'Walk/Run',         type: 'stars', icon: '🏃',  prevDayCarryover: false, category: 'Health' },
+  { id: 'rc12', name: 'Stretch',          type: 'stars', icon: '🧘',  prevDayCarryover: false, category: 'Health' },
+  { id: 'rc13', name: 'Meal amount',      type: 'stars', icon: '🍽️', prevDayCarryover: false, category: 'Health' },
+  { id: 'rc14', name: 'Rheumatoid',       type: 'stars', icon: '🦵',  prevDayCarryover: false, category: 'Health' },
+  { id: 'rc15', name: 'Rheumatoid(Area)', type: 'memo',  icon: '🦵',  prevDayCarryover: false, category: 'Health' },
+];
 const SHEET_NAME = 'Records';
 const SETTINGS_SHEET = 'Settings';
 
@@ -288,6 +307,12 @@ async function createSpreadsheet() {
       );
     }
     saveSheetData();
+    // 習慣が未設定の場合はデフォルト項目を自動セットする
+    if (habits.length === 0) {
+      habits = DEFAULT_HABITS.map(h => ({ ...h }));
+      renderHabits();
+      renderHabitsSettings();
+    }
     await initializeSheet();
     await saveHabitsToSheet();
     updateSheetStatus();
@@ -1273,6 +1298,104 @@ function loadSettings() {
   }
 }
 
+// ===== RHYTHMCARE CSV IMPORT =====
+
+// ダブルクォート対応のシンプルなCSVパーサー
+function parseCSVRow(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+      else { inQuotes = !inQuotes; }
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current); current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+async function importRhythmCareCSV(file) {
+  const raw = await file.text();
+  // BOM除去・改行正規化
+  const text = raw.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = text.split('\n');
+
+  // 行1: "RhythmCare"（スキップ）、行2: ヘッダー、行3: サブヘッダー、行4以降: データ
+  if (lines.length < 4) throw new Error('無効なCSVファイルです');
+
+  const headers    = parseCSVRow(lines[1]);
+  const subheaders = parseCSVRow(lines[2]);
+
+  // 各項目名 → 値列インデックスを構築（サブヘッダーが"コメント"でない列が値列）
+  const colMap = {}; // {itemName: valueColIndex}
+  for (let i = 1; i < headers.length; i++) {
+    const name = headers[i].trim();
+    const sub  = (subheaders[i] || '').trim();
+    if (name && sub !== 'コメント') colMap[name] = i;
+  }
+
+  const sheetHeader = buildHeaderRow();
+
+  // データ行をパース
+  const importRows = [];
+  for (const line of lines.slice(3)) {
+    if (!line.trim()) continue;
+    const row = parseCSVRow(line);
+    if (!row[0] || !row[0].trim()) continue;
+
+    // 全値列が空なら skip
+    const hasData = Object.values(colMap).some(i => (row[i] || '').trim());
+    if (!hasData) continue;
+
+    // 日付: YYYY/MM/DD → YYYY-MM-DD
+    const dateStr = row[0].trim().replace(/\//g, '-');
+
+    // 習慣列（MealとAlcoholはhhtracker固定列へ統合するので除外）
+    const habitValues = habits.map(h => {
+      const idx = colMap[h.name];
+      return idx !== undefined ? (row[idx] || '') : '';
+    });
+
+    // 固定列: Meal→朝食、Alcohol→飲酒量
+    const breakfast = (row[colMap['Meal']] || '').trim();
+    const alcohol   = (row[colMap['Alcohol']] || '').trim() || '0';
+
+    const sheetRow = [dateStr, ...habitValues, breakfast, '', '', '', alcohol, ''];
+    importRows.push(sheetRow);
+  }
+
+  if (importRows.length === 0) throw new Error('インポートできるデータがありません');
+
+  // 既存シートデータと日付キーでマージ
+  const allRows = await sheetsGet(`${SHEET_NAME}!A:Z`);
+  const oldHeader = allRows[0] || [];
+  let existingRows = allRows.slice(1).filter(r => r[0]);
+
+  // 既存データを現在のヘッダーに移行
+  let mergedRows = existingRows.map(row =>
+    sheetHeader.map(col => { const i = oldHeader.indexOf(col); return i >= 0 ? (row[i] || '') : ''; })
+  );
+
+  // インポートデータをマージ（同日付は上書き）
+  for (const importRow of importRows) {
+    const idx = mergedRows.findIndex(r => r[0] === importRow[0]);
+    if (idx >= 0) mergedRows[idx] = importRow;
+    else mergedRows.push(importRow);
+  }
+
+  // 日付順にソート
+  mergedRows.sort((a, b) => a[0].localeCompare(b[0]));
+
+  await sheetsUpdate([sheetHeader, ...mergedRows], `${SHEET_NAME}!A1`);
+  return importRows.length;
+}
+
 // ===== UTILITY =====
 function genId() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -1383,6 +1506,26 @@ function attachEvents() {
 
   // 設定: 習慣追加ボタン
   $('add-habit-settings-btn').addEventListener('click', () => openHabitModal());
+
+  // 設定: RhythmCare CSVインポート
+  $('rc-import-input').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!spreadsheetId) {
+      showStatus('先にスプレッドシートを設定してください', true);
+      e.target.value = '';
+      return;
+    }
+    showStatus('インポート中...', false, 0);
+    try {
+      const count = await importRhythmCareCSV(file);
+      showStatus(`✅ ${count}件のデータをインポートしました`, false, 5000);
+    } catch (err) {
+      showStatus('インポート失敗: ' + err.message, true);
+    } finally {
+      e.target.value = '';
+    }
+  });
 
   // モーダル
   $('modal-close-btn').addEventListener('click', closeHabitModal);
