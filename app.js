@@ -1323,100 +1323,77 @@ function loadSettings() {
   }
 }
 
-// ===== RHYTHMCARE CSV IMPORT =====
+// ===== RHYTHMCARE DB IMPORT =====
 
-// ダブルクォート対応のシンプルなCSVパーサー
-function parseCSVRow(line) {
-  const result = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-      else { inQuotes = !inQuotes; }
-    } else if (ch === ',' && !inQuotes) {
-      result.push(current); current = '';
-    } else {
-      current += ch;
-    }
-  }
-  result.push(current);
-  return result;
+// sql.js（SQLite WebAssembly）を動的ロードする
+function loadSqlJs() {
+  return new Promise((resolve, reject) => {
+    if (window.initSqlJs) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js';
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('sql.js の読み込みに失敗しました'));
+    document.head.appendChild(s);
+  });
 }
 
-async function importRhythmCareCSV(file) {
-  const raw = await file.text();
-  // BOM除去・改行正規化
-  const text = raw.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const lines = text.split('\n');
+async function importRhythmCareDB(file) {
+  // sql.jsをロードしてDBを開く
+  await loadSqlJs();
+  const SQL = await window.initSqlJs({
+    locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`
+  });
+  const buf = await file.arrayBuffer();
+  const db = new SQL.Database(new Uint8Array(buf));
 
-  // 行1: "RhythmCare"（スキップ）、行2: ヘッダー、行3: サブヘッダー、行4以降: データ
-  if (lines.length < 4) throw new Error('無効なCSVファイルです');
+  // 項目一覧: itemId → {name, dataType}
+  const itemRes = db.exec('SELECT id, name, dataType FROM items')[0];
+  if (!itemRes) throw new Error('itemsテーブルが見つかりません');
+  const itemById = {};
+  itemRes.values.forEach(([id, name, dataType]) => { itemById[id] = { name, dataType }; });
 
-  const headers    = parseCSVRow(lines[1]);
-  const subheaders = parseCSVRow(lines[2]);
+  // 全レコードを日付でグループ化
+  const recRes = db.exec('SELECT itemId, date, value, textValue FROM records ORDER BY date')[0];
+  db.close();
 
-  // 各項目名 → 値列インデックスを構築（サブヘッダーが"コメント"でない列が値列）
-  const colMap = {}; // {itemName: valueColIndex}
-  for (let i = 1; i < headers.length; i++) {
-    const name = headers[i].trim();
-    const sub  = (subheaders[i] || '').trim();
-    if (name && sub !== 'コメント') colMap[name] = i;
+  const byDate = {}; // {dateStr: {itemName: value}}
+  if (recRes) {
+    recRes.values.forEach(([itemId, date, value, textValue]) => {
+      const item = itemById[itemId];
+      if (!item) return;
+      if (!byDate[date]) byDate[date] = {};
+      // dataType 16はテキストメモ、それ以外は数値
+      byDate[date][item.name] = item.dataType === 16 ? (textValue || '') : (value || '');
+    });
   }
 
   const sheetHeader = buildHeaderRow();
 
-  // データ行をパース
-  const importRows = [];
-  for (const line of lines.slice(3)) {
-    if (!line.trim()) continue;
-    const row = parseCSVRow(line);
-    if (!row[0] || !row[0].trim()) continue;
-
-    // 全値列が空なら skip
-    const hasData = Object.values(colMap).some(i => (row[i] || '').trim());
-    if (!hasData) continue;
-
-    // 日付: YYYY/MM/DD → YYYY-MM-DD
-    const dateStr = row[0].trim().replace(/\//g, '-');
-
-    // 習慣列（MealとAlcoholはhhtracker固定列へ統合するので除外）
-    const habitValues = habits.map(h => {
-      const idx = colMap[h.name];
-      return idx !== undefined ? (row[idx] || '') : '';
-    });
-
-    // 固定列: Meal→朝食、Alcohol→飲酒量
-    const breakfast = (row[colMap['Meal']] || '').trim();
-    const alcohol   = (row[colMap['Alcohol']] || '').trim() || '0';
-
-    const sheetRow = [dateStr, ...habitValues, breakfast, '', '', '', alcohol, ''];
-    importRows.push(sheetRow);
-  }
+  // 日付ごとにシート行を構築
+  const importRows = Object.entries(byDate).map(([dateStr, data]) => {
+    const habitValues = habits.map(h => data[h.name] || '');
+    // Meal→朝食、Alcohol→飲酒量 に統合
+    const breakfast = data['Meal'] || '';
+    const alcohol   = data['Alcohol'] || '0';
+    return [dateStr, ...habitValues, breakfast, '', '', '', alcohol, ''];
+  });
 
   if (importRows.length === 0) throw new Error('インポートできるデータがありません');
 
   // 既存シートデータと日付キーでマージ
   const allRows = await sheetsGet(`${SHEET_NAME}!A:Z`);
   const oldHeader = allRows[0] || [];
-  let existingRows = allRows.slice(1).filter(r => r[0]);
-
-  // 既存データを現在のヘッダーに移行
-  let mergedRows = existingRows.map(row =>
+  let mergedRows = allRows.slice(1).filter(r => r[0]).map(row =>
     sheetHeader.map(col => { const i = oldHeader.indexOf(col); return i >= 0 ? (row[i] || '') : ''; })
   );
 
-  // インポートデータをマージ（同日付は上書き）
   for (const importRow of importRows) {
     const idx = mergedRows.findIndex(r => r[0] === importRow[0]);
     if (idx >= 0) mergedRows[idx] = importRow;
     else mergedRows.push(importRow);
   }
 
-  // 日付順にソート
   mergedRows.sort((a, b) => a[0].localeCompare(b[0]));
-
   await sheetsUpdate([sheetHeader, ...mergedRows], `${SHEET_NAME}!A1`);
   return importRows.length;
 }
@@ -1544,7 +1521,7 @@ function attachEvents() {
   $('add-habit-settings-btn').addEventListener('click', () => openHabitModal());
 
 
-  // 設定: RhythmCare CSVインポート
+  // 設定: RhythmCare DBインポート
   $('rc-import-input').addEventListener('change', async e => {
     const file = e.target.files[0];
     if (!file) return;
@@ -1553,10 +1530,10 @@ function attachEvents() {
       e.target.value = '';
       return;
     }
-    showStatus('インポート中...', false, 0);
+    showStatus('インポート中（初回はsql.jsの読み込みに少し時間がかかります）...', false, 0);
     try {
-      const count = await importRhythmCareCSV(file);
-      showStatus(`✅ ${count}件のデータをインポートしました`, false, 5000);
+      const count = await importRhythmCareDB(file);
+      showStatus(`✅ ${count}日分のデータをインポートしました`, false, 5000);
     } catch (err) {
       showStatus('インポート失敗: ' + err.message, true);
     } finally {
