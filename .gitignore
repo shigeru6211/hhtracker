@@ -1,0 +1,8 @@
+# Google OAuthクレデンシャル（絶対に公開しない）
+client_secret_*.json
+
+# macOS
+.DS_Store
+
+# デバッグ用フォルダ
+troubleshoot/

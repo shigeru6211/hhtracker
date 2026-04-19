@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 背景 -->
+  <rect width="512" height="512" rx="96" fill="#4f46e5"/>
+  <!-- クリップボード本体 -->
+  <rect x="128" y="152" width="256" height="300" rx="16" fill="white" opacity="0.97"/>
+  <!-- クリップ部分 -->
+  <rect x="200" y="112" width="112" height="72" rx="16" fill="white"/>
+  <rect x="220" y="130" width="72" height="36" rx="8" fill="#4f46e5"/>
+  <!-- テキスト行 -->
+  <rect x="168" y="252" width="160" height="16" rx="8" fill="#4f46e5" opacity="0.7"/>
+  <rect x="168" y="284" width="130" height="16" rx="8" fill="#4f46e5" opacity="0.5"/>
+  <rect x="168" y="316" width="100" height="16" rx="8" fill="#4f46e5" opacity="0.4"/>
+  <!-- 星（チェック済みアイコン） -->
+  <text x="340" y="248" font-size="56" font-family="sans-serif" fill="#f59e0b">★</text>
+</svg>

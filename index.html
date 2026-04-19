@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="HHTracker">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <title>HHTracker</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+  <!-- Status Bar（全画面共通） -->
+  <div id="status-bar" class="status-bar hidden"></div>
+
+  <!-- ===== Auth Screen ===== -->
+  <div id="auth-screen" class="screen">
+    <div class="auth-container">
+      <div class="app-icon">📋</div>
+      <h1>HHTracker</h1>
+      <p class="auth-subtitle">Track your daily habits and health<br>to build a healthier life</p>
+      <button id="signin-btn" class="btn btn-primary btn-large">
+        <svg class="google-icon" viewBox="0 0 24 24" width="20" height="20">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Sign in with Google
+      </button>
+      <p id="signin-status" class="auth-note" style="min-height:1.5em"></p>
+      <p class="auth-note">Your data is saved to a Spreadsheet in your Google Drive</p>
+    </div>
+  </div>
+
+  <!-- ===== Main App ===== -->
+  <div id="app-screen" class="screen hidden">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-inner">
+        <div class="header-left">
+          <h1 class="header-title">📋 HHTracker</h1>
+        </div>
+        <div class="header-right">
+          <!-- Desktop nav (mobile uses bottom nav) -->
+          <button class="nav-btn active" data-view="today">Today</button>
+          <button class="nav-btn" data-view="history">History</button>
+          <button class="nav-btn" data-view="settings">Settings</button>
+          <div class="user-menu">
+            <img id="user-avatar" class="user-avatar" src="" alt="User">
+            <div id="user-dropdown" class="user-dropdown hidden">
+              <span id="user-name-display"></span>
+              <button id="signout-btn" class="btn-link">Sign out</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Status Bar（app-screen内は空にする、実体は body直下に移動済み） -->
+
+    <!-- ===== Today View ===== -->
+    <main id="view-today" class="view active">
+      <div class="container">
+
+        <!-- 日付ナビゲーション -->
+        <div class="date-nav">
+          <button id="prev-day-btn" class="icon-btn" aria-label="Previous day">‹</button>
+          <div class="date-display">
+            <div id="date-label" class="date-label"></div>
+            <div id="date-sub" class="date-sub"></div>
+          </div>
+          <button id="next-day-btn" class="icon-btn" aria-label="Next day">›</button>
+        </div>
+
+        <!-- 保存ボタン行 -->
+        <div class="save-row">
+          <div id="save-status" class="save-status"></div>
+          <button id="save-btn" class="btn btn-primary">💾 Save</button>
+        </div>
+
+        <!-- 習慣・体調セクション -->
+        <section class="section">
+          <div class="section-header">
+            <h2 class="section-title">Habits &amp; Health</h2>
+            <button id="add-habit-btn" class="btn btn-secondary btn-small">+ Add</button>
+          </div>
+          <div id="habits-list" class="habits-list"></div>
+          <div id="no-habits" class="empty-state">
+            <p>No habits registered yet</p>
+            <p class="empty-sub">Add habits from Settings</p>
+          </div>
+        </section>
+
+        <!-- 食事記録セクション -->
+        <section class="section">
+          <h2 class="section-title">Meals</h2>
+          <div class="meals-grid">
+            <div class="meal-card">
+              <label class="meal-label" for="meal-breakfast">🌅 Breakfast</label>
+              <div class="meal-input-wrapper">
+                <textarea id="meal-breakfast" class="meal-input" placeholder="What did you have for breakfast?" rows="3" autocomplete="off"></textarea>
+                <div class="meal-suggestions hidden" id="sugg-breakfast"></div>
+              </div>
+            </div>
+            <div class="meal-card">
+              <label class="meal-label" for="meal-lunch">☀️ Lunch</label>
+              <div class="meal-input-wrapper">
+                <textarea id="meal-lunch" class="meal-input" placeholder="What did you have for lunch?" rows="3" autocomplete="off"></textarea>
+                <div class="meal-suggestions hidden" id="sugg-lunch"></div>
+              </div>
+            </div>
+            <div class="meal-card">
+              <label class="meal-label" for="meal-snack">🍪 Snack</label>
+              <div class="meal-input-wrapper">
+                <textarea id="meal-snack" class="meal-input" placeholder="Any snacks?" rows="3" autocomplete="off"></textarea>
+                <div class="meal-suggestions hidden" id="sugg-snack"></div>
+              </div>
+            </div>
+            <div class="meal-card">
+              <label class="meal-label" for="meal-dinner">🌙 Dinner</label>
+              <div class="meal-input-wrapper">
+                <textarea id="meal-dinner" class="meal-input" placeholder="What did you have for dinner?" rows="3" autocomplete="off"></textarea>
+                <div class="meal-suggestions hidden" id="sugg-dinner"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Alcohol -->
+          <div class="alcohol-row habit-item">
+            <div class="habit-icon">🍶</div>
+            <div class="habit-name">Alcohol</div>
+            <div class="habit-control" id="ctrl-alcohol"></div>
+          </div>
+        </section>
+
+        <!-- メモセクション -->
+        <section class="section">
+          <h2 class="section-title">Notes</h2>
+          <textarea id="notes-input" class="notes-input" placeholder="Notes for today..." rows="4"></textarea>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- ===== History View ===== -->
+    <main id="view-history" class="view">
+      <div class="container">
+        <div class="view-header">
+          <h2>History</h2>
+          <select id="history-month-select" class="select"></select>
+        </div>
+        <div id="history-calendar" class="history-calendar"></div>
+        <div id="history-detail" class="history-detail hidden"></div>
+      </div>
+    </main>
+
+    <!-- ===== Settings View ===== -->
+    <main id="view-settings" class="view">
+      <div class="container">
+        <div class="view-header">
+          <h2>Settings</h2>
+        </div>
+
+        <!-- Data Storage -->
+        <section class="section">
+          <h3 class="section-title">Data Storage</h3>
+          <div class="settings-group">
+            <div id="sheet-status" class="sheet-status">Not configured</div>
+            <div class="form-label" style="margin-top:4px">Save Folder</div>
+            <div class="input-row">
+              <div id="folder-status" class="folder-status">My Drive (root)</div>
+              <button id="select-folder-btn" class="btn btn-secondary btn-small">Select</button>
+            </div>
+            <div class="form-label" style="margin-top:12px">Create New</div>
+            <div class="input-row">
+              <input id="new-sheet-name-input" type="text" class="input" placeholder="File name (e.g. My Habit Tracker)">
+              <button id="create-sheet-btn" class="btn btn-secondary">Create</button>
+            </div>
+            <div class="settings-or">or</div>
+            <div class="form-label">Search existing files</div>
+            <div class="input-row">
+              <input id="sheet-search-input" type="text" class="input" placeholder="Search by file name...">
+              <button id="search-sheet-btn" class="btn btn-secondary">Search</button>
+            </div>
+            <div id="sheet-search-results" class="sheet-search-results hidden"></div>
+          </div>
+        </section>
+
+        <!-- Habits & Health Items -->
+        <section class="section">
+          <div class="section-header">
+            <h3 class="section-title">Habits &amp; Health Items</h3>
+            <button id="add-habit-settings-btn" class="btn btn-primary btn-small">+ Add</button>
+          </div>
+          <div id="habits-settings-list" class="habits-settings-list"></div>
+        </section>
+
+        <!-- Account -->
+        <section class="section">
+          <h3 class="section-title">Account</h3>
+          <div class="account-info">
+            <img id="settings-avatar" class="user-avatar-large" src="" alt="">
+            <div>
+              <div id="settings-name" class="settings-name"></div>
+              <div id="settings-email" class="settings-email"></div>
+            </div>
+          </div>
+          <button id="settings-signout-btn" class="btn btn-danger">Sign out</button>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- ===== Bottom Navigation（モバイル用） ===== -->
+    <nav class="bottom-nav" aria-label="Main navigation">
+      <button class="bottom-nav-btn active" data-view="today">
+        <span class="bnav-icon">📋</span>
+        <span class="bnav-label">Today</span>
+      </button>
+      <button class="bottom-nav-btn" data-view="history">
+        <span class="bnav-icon">📅</span>
+        <span class="bnav-label">History</span>
+      </button>
+      <button class="bottom-nav-btn" data-view="settings">
+        <span class="bnav-icon">⚙️</span>
+        <span class="bnav-label">Settings</span>
+      </button>
+    </nav>
+
+  </div><!-- /#app-screen -->
+
+  <!-- ===== 習慣追加・編集モーダル ===== -->
+  <div id="habit-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">Add Habit</h3>
+        <button class="modal-close" id="modal-close-btn" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="habit-name-input">Name <span class="required">*</span></label>
+          <input id="habit-name-input" type="text" class="input" placeholder="e.g. Exercise, Sleep quality, Weight...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type <span class="required">*</span></label>
+          <div class="type-selector">
+            <label class="type-option">
+              <input type="radio" name="habit-type" value="stars" checked>
+              <span class="type-label"><span class="type-icon">⭐</span><span>Star rating (1-5)</span></span>
+            </label>
+            <label class="type-option">
+              <input type="radio" name="habit-type" value="check">
+              <span class="type-label"><span class="type-icon">✅</span><span>Check (done/not)</span></span>
+            </label>
+            <label class="type-option">
+              <input type="radio" name="habit-type" value="memo">
+              <span class="type-label"><span class="type-icon">📝</span><span>Memo (free text)</span></span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category <span class="required">*</span></label>
+          <div class="type-selector">
+            <label class="type-option">
+              <input type="radio" name="habit-category" value="Health" checked>
+              <span class="type-label"><span class="type-icon">💪</span><span>Health</span></span>
+            </label>
+            <label class="type-option">
+              <input type="radio" name="habit-category" value="Learning">
+              <span class="type-label"><span class="type-icon">📚</span><span>Learning</span></span>
+            </label>
+            <label class="type-option">
+              <input type="radio" name="habit-category" value="Other">
+              <span class="type-label"><span class="type-icon">📋</span><span>Other</span></span>
+            </label>
+          </div>
+        </div>
+        <div id="memo-carryover-group" class="form-group hidden">
+          <label class="carryover-label">
+            <input type="checkbox" id="habit-carryover-input" class="carryover-check">
+            <span>Carry over from yesterday</span>
+          </label>
+          <p class="form-help">If empty, shows the previous day's memo as default</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Icon (optional)</label>
+          <div class="emoji-picker" id="emoji-picker"></div>
+          <input type="hidden" id="habit-icon-input">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="modal-cancel-btn" class="btn btn-ghost">Cancel</button>
+        <button id="modal-save-btn" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== フォルダ選択モーダル ===== -->
+  <div id="folder-picker-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Select Save Folder</h3>
+        <button class="modal-close" id="folder-modal-close-btn" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="folder-breadcrumb" class="folder-breadcrumb"></div>
+        <div id="folder-list" class="folder-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="folder-cancel-btn" class="btn btn-ghost">Cancel</button>
+        <button id="folder-select-here-btn" class="btn btn-primary">Save Here</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
