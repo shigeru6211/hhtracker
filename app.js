@@ -397,8 +397,9 @@ async function loadHabitsFromSheet() {
       prevDayCarryover: r[4] === 'true',
       category: CATEGORIES.includes(r[5]) ? r[5] : (CATEGORY_MIGRATION[r[5]] || 'Other')
     }));
-    // 習慣が空ならデフォルト項目を適用してシートに保存する
-    if (loaded.length === 0) {
+    // RhythmCareの項目が一つも含まれていない場合はデフォルトに自動移行する
+    const hasRcItems = loaded.some(h => DEFAULT_HABITS.some(d => d.name === h.name));
+    if (!hasRcItems) {
       habits = DEFAULT_HABITS.map(h => ({ ...h }));
       await saveHabitsToSheet();
     } else {
@@ -1517,18 +1518,6 @@ function attachEvents() {
   // 設定: 習慣追加ボタン
   $('add-habit-settings-btn').addEventListener('click', () => openHabitModal());
 
-  // 設定: RhythmCareデフォルトにリセット
-  $('reset-habits-btn').addEventListener('click', async () => {
-    if (!confirm('現在の習慣設定を全て削除し、RhythmCareのデフォルト項目に戻しますか？')) return;
-    habits = DEFAULT_HABITS.map(h => ({ ...h }));
-    renderHabits();
-    renderHabitsSettings();
-    if (spreadsheetId) {
-      await saveHabitsToSheet();
-      await initializeSheet();
-      showStatus('✅ RhythmCareのデフォルト項目にリセットしました', false, 3000);
-    }
-  });
 
   // 設定: RhythmCare CSVインポート
   $('rc-import-input').addEventListener('change', async e => {
