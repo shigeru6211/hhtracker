@@ -307,12 +307,10 @@ async function createSpreadsheet() {
       );
     }
     saveSheetData();
-    // 習慣が未設定の場合はデフォルト項目を自動セットする
-    if (habits.length === 0) {
-      habits = DEFAULT_HABITS.map(h => ({ ...h }));
-      renderHabits();
-      renderHabitsSettings();
-    }
+    // 新規シートには常にデフォルト習慣をセットする
+    habits = DEFAULT_HABITS.map(h => ({ ...h }));
+    renderHabits();
+    renderHabitsSettings();
     await initializeSheet();
     await saveHabitsToSheet();
     updateSheetStatus();
