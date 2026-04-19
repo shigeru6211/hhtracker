@@ -40,7 +40,7 @@ let accessToken = null;
 let currentUser = null;
 let spreadsheetId = null;
 let spreadsheetName = '';
-let habits = [];
+let habits = DEFAULT_HABITS.map(h => ({ ...h }));
 let currentDate = todayStr();
 let todayData = {};
 let prevDayDefaults = {};
