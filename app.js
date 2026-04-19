@@ -392,12 +392,18 @@ async function loadHabitsFromSheet() {
   if (!spreadsheetId) return;
   try {
     const rows = await sheetsGet(`${SETTINGS_SHEET}!A:F`);
-    if (rows.length < 2) return;
-    habits = rows.slice(1).filter(r => r[0]).map(r => ({
+    const loaded = rows.length < 2 ? [] : rows.slice(1).filter(r => r[0]).map(r => ({
       id: r[0], name: r[1] || '', type: r[2] || 'stars', icon: r[3] || '',
       prevDayCarryover: r[4] === 'true',
       category: CATEGORIES.includes(r[5]) ? r[5] : (CATEGORY_MIGRATION[r[5]] || 'Other')
     }));
+    // 習慣が空ならデフォルト項目を適用してシートに保存する
+    if (loaded.length === 0) {
+      habits = DEFAULT_HABITS.map(h => ({ ...h }));
+      await saveHabitsToSheet();
+    } else {
+      habits = loaded;
+    }
     renderHabits();
     renderHabitsSettings();
   } catch (e) {
