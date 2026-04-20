@@ -160,6 +160,7 @@ function setSigninStatus(msg, isError = false) {
 const TOKEN_CACHE_KEY = 'gac_token';
 const TOKEN_EXPIRY_KEY = 'gac_expiry';
 const TOKEN_BUFFER_MS = 5 * 60 * 1000; // 期限5分前に失効とみなす
+const USER_EMAIL_KEY   = 'gac_email';   // login_hint用メールアドレスを保存
 
 function saveTokenCache(token, expiresIn) {
   const expiry = Date.now() + (expiresIn * 1000) - TOKEN_BUFFER_MS;
@@ -176,6 +177,21 @@ function loadTokenCache() {
 function clearTokenCache() {
   localStorage.removeItem(TOKEN_CACHE_KEY);
   localStorage.removeItem(TOKEN_EXPIRY_KEY);
+  localStorage.removeItem(USER_EMAIL_KEY);
+}
+
+function getSavedEmail() {
+  return localStorage.getItem(USER_EMAIL_KEY) || '';
+}
+
+// アプリが開いている間、トークン期限の5分前に自動更新するタイマー
+let _tokenRefreshTimer = null;
+function scheduleTokenRefresh(expiresIn) {
+  clearTimeout(_tokenRefreshTimer);
+  const refreshIn = Math.max(10000, (expiresIn - 300) * 1000); // 最低10秒後
+  _tokenRefreshTimer = setTimeout(() => {
+    if (gisClient) gisClient.requestAccessToken({ prompt: '', login_hint: getSavedEmail() });
+  }, refreshIn);
 }
 
 // ===== GOOGLE IDENTITY SERVICES =====
@@ -200,8 +216,8 @@ function initGIS() {
     },
   });
   setSigninStatus('');
-  // GIS初期化後にサイレント認証を試みる（ユーザー操作なしでトークン取得）
-  gisClient.requestAccessToken({ prompt: '' });
+  // GIS初期化後にサイレント認証を試みる（login_hintで確実性を高める）
+  gisClient.requestAccessToken({ prompt: '', login_hint: getSavedEmail() });
 }
 
 function handleTokenResponse(resp) {
@@ -215,7 +231,10 @@ function handleTokenResponse(resp) {
   }
   accessToken = resp.access_token;
   // トークンをキャッシュしてログインを自動化する
-  saveTokenCache(resp.access_token, resp.expires_in || 3600);
+  const expiresIn = resp.expires_in || 3600;
+  saveTokenCache(resp.access_token, expiresIn);
+  // アプリが開いている間は期限切れ前に自動更新する
+  scheduleTokenRefresh(expiresIn);
   fetchUserProfile();
 }
 
@@ -255,6 +274,8 @@ async function fetchUserProfile() {
     $('settings-avatar').src = currentUser.picture || '';
     $('settings-name').textContent = currentUser.name || '';
     $('settings-email').textContent = currentUser.email || '';
+    // 翌日以降のサイレント認証で使うメールアドレスを保存
+    if (currentUser.email) localStorage.setItem(USER_EMAIL_KEY, currentUser.email);
     showAppScreen();
   } catch (e) {
     // トークンが無効な場合はキャッシュをクリアしてログイン画面に戻す
