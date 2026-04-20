@@ -9,7 +9,7 @@ const SCOPES = [
 ].join(' ');
 
 const SPREADSHEET_TITLE = 'HHTracker';
-const CATEGORIES = ['Health', 'Learning', 'Other'];
+const CATEGORIES = ['Health', 'Learning', 'Meals', 'Other'];
 // 旧カテゴリ名（日本語）→新カテゴリ名（英語）のマイグレーションマップ
 const CATEGORY_MIGRATION = { '健康': 'Health', '学習': 'Learning', 'その他': 'Other' };
 
@@ -27,7 +27,7 @@ const DEFAULT_HABITS = [
   { id: 'rc10', name: 'Gym/HIIT',         type: 'stars', icon: '💪',  prevDayCarryover: false, category: 'Health' },
   { id: 'rc11', name: 'Walk/Run',         type: 'stars', icon: '🏃',  prevDayCarryover: false, category: 'Health' },
   { id: 'rc12', name: 'Stretch',          type: 'stars', icon: '🧘',  prevDayCarryover: false, category: 'Health' },
-  { id: 'rc13', name: 'Meal amount',      type: 'stars', icon: '🍽️', prevDayCarryover: false, category: 'Health' },
+  { id: 'rc13', name: 'Meal amount',      type: 'stars', icon: '🍽️', prevDayCarryover: false, category: 'Meals' },
   { id: 'rc14', name: 'Rheumatoid',       type: 'stars', icon: '🦵',  prevDayCarryover: false, category: 'Health' },
   { id: 'rc15', name: 'Rheumatoid(Area)', type: 'memo',  icon: '🦵',  prevDayCarryover: true,  category: 'Health' },
 ];
@@ -425,12 +425,17 @@ async function loadHabitsFromSheet() {
       await saveHabitsToSheet();
     } else {
       habits = loaded;
-      // 前日引き継ぎ設定のパッチ適用（シート保存済みの設定を自動修正）
+      // 設定パッチ適用（シート保存済みの設定を自動修正）
       const CARRYOVER_PATCHES = { 'Rheumatoid(Area)': true };
+      const CATEGORY_PATCHES  = { 'Meal amount': 'Meals' };
       let patched = false;
       habits.forEach(h => {
         if (h.name in CARRYOVER_PATCHES && h.prevDayCarryover !== CARRYOVER_PATCHES[h.name]) {
           h.prevDayCarryover = CARRYOVER_PATCHES[h.name];
+          patched = true;
+        }
+        if (h.name in CATEGORY_PATCHES && h.category !== CATEGORY_PATCHES[h.name]) {
+          h.category = CATEGORY_PATCHES[h.name];
           patched = true;
         }
       });
