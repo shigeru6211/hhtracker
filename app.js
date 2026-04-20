@@ -855,15 +855,16 @@ function renderHabitsSettings() {
 
         const item = document.createElement('div');
         item.className = 'habit-settings-item';
+        item.draggable = true;
+        item.dataset.dragId = h.id;
         item.innerHTML = `
+          <div class="drag-handle" title="ドラッグして並び替え">⠿</div>
           <div class="habit-icon">${h.icon || defaultIcon(h.type)}</div>
           <div class="habit-settings-info">
             <div class="habit-settings-name">${escHtml(h.name)}</div>
             <div class="habit-settings-type">${typeLabel}</div>
           </div>
           <div class="habit-settings-actions">
-            <button class="move-btn move-up-btn" data-id="${h.id}" title="Move up" ${idxInCat === 0 ? 'disabled' : ''}>↑</button>
-            <button class="move-btn move-down-btn" data-id="${h.id}" title="Move down" ${idxInCat === catHabits.length - 1 ? 'disabled' : ''}>↓</button>
             <select class="category-select" data-id="${h.id}">${catOptions}</select>
             <button class="icon-action-btn edit-habit" data-id="${h.id}" title="編集">✏️</button>
             <button class="icon-action-btn delete delete-habit" data-id="${h.id}" title="Delete">🗑️</button>
@@ -874,12 +875,6 @@ function renderHabitsSettings() {
     });
 
     // イベント登録
-    list.querySelectorAll('.move-up-btn').forEach(btn => {
-      btn.addEventListener('click', () => moveHabitUp(btn.dataset.id));
-    });
-    list.querySelectorAll('.move-down-btn').forEach(btn => {
-      btn.addEventListener('click', () => moveHabitDown(btn.dataset.id));
-    });
     list.querySelectorAll('.category-select').forEach(sel => {
       sel.addEventListener('change', () => changeHabitCategory(sel.dataset.id, sel.value));
     });
@@ -889,6 +884,9 @@ function renderHabitsSettings() {
     list.querySelectorAll('.delete-habit').forEach(btn => {
       btn.addEventListener('click', () => deleteHabit(btn.dataset.id));
     });
+
+    // ドラッグ&ドロップ初期化
+    initHabitDragDrop(list);
   }
 
   // 表示設定のトグルを同期
@@ -953,33 +951,146 @@ async function saveHabitFromModal() {
   }
 }
 
-// カテゴリ内で習慣を上に移動する
-async function moveHabitUp(id) {
-  const h = habits.find(h => h.id === id);
-  if (!h) return;
-  const catHabits = habits.filter(h2 => (h2.category || 'Other') === (h.category || 'Other'));
-  const idxInCat = catHabits.findIndex(h2 => h2.id === id);
-  if (idxInCat <= 0) return;
-  const prev = catHabits[idxInCat - 1];
-  const gi = habits.indexOf(h);
-  const gp = habits.indexOf(prev);
-  [habits[gi], habits[gp]] = [habits[gp], habits[gi]];
-  renderHabits();
-  renderHabitsSettings();
-  if (spreadsheetId) saveHabitsToSheet().catch(() => {});
+
+// ===== DRAG & DROP (習慣リスト並び替え) =====
+
+// ドラッグ元ハンドルのmousedown検出フラグ（ハンドル以外からのdragを防ぐ）
+let _dragFromHandle = false;
+
+function initHabitDragDrop(listEl) {
+  // マウスドラッグ: ハンドルを掴んだ時だけドラッグを許可する
+  listEl.addEventListener('mousedown', e => {
+    _dragFromHandle = !!e.target.closest('.drag-handle');
+  });
+
+  listEl.addEventListener('dragstart', e => {
+    if (!_dragFromHandle) { e.preventDefault(); return; }
+    const item = e.target.closest('[data-drag-id]');
+    if (!item) return;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', item.dataset.dragId);
+    // Chrome対策: 少し遅らせてopacity変更
+    requestAnimationFrame(() => item.classList.add('dragging'));
+  });
+
+  listEl.addEventListener('dragend', () => {
+    _dragFromHandle = false;
+    listEl.querySelectorAll('.dragging, .drag-over').forEach(el => {
+      el.classList.remove('dragging', 'drag-over');
+    });
+  });
+
+  listEl.addEventListener('dragover', e => {
+    e.preventDefault();
+    const item = e.target.closest('[data-drag-id]');
+    const src  = listEl.querySelector('.dragging');
+    if (!item || !src || item === src) return;
+    listEl.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    item.classList.add('drag-over');
+  });
+
+  listEl.addEventListener('dragleave', e => {
+    const item = e.target.closest('[data-drag-id]');
+    if (item && !item.contains(e.relatedTarget)) item.classList.remove('drag-over');
+  });
+
+  listEl.addEventListener('drop', e => {
+    e.preventDefault();
+    const targetItem = e.target.closest('[data-drag-id]');
+    const srcId = e.dataTransfer.getData('text/plain');
+    if (!targetItem || !srcId || targetItem.dataset.dragId === srcId) return;
+    reorderHabit(srcId, targetItem.dataset.dragId);
+  });
+
+  // タッチ操作 (モバイル): ハンドルから長押しでドラッグ開始
+  let touchSrcId = null;
+  let touchGhost = null;
+  let touchOffsetX = 0, touchOffsetY = 0;
+
+  listEl.addEventListener('touchstart', e => {
+    const handle = e.target.closest('.drag-handle');
+    if (!handle) return;
+    const item = handle.closest('[data-drag-id]');
+    if (!item) return;
+
+    touchSrcId = item.dataset.dragId;
+    const touch = e.touches[0];
+    const rect  = item.getBoundingClientRect();
+    touchOffsetX = touch.clientX - rect.left;
+    touchOffsetY = touch.clientY - rect.top;
+
+    // ゴースト要素を生成してボディに追加
+    touchGhost = item.cloneNode(true);
+    Object.assign(touchGhost.style, {
+      position: 'fixed',
+      width: rect.width + 'px',
+      left: rect.left + 'px',
+      top: rect.top + 'px',
+      opacity: '0.85',
+      pointerEvents: 'none',
+      zIndex: '9999',
+      transform: 'scale(1.03)',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+      borderRadius: '8px',
+      transition: 'none',
+    });
+    document.body.appendChild(touchGhost);
+    item.classList.add('dragging');
+    e.preventDefault();
+  }, { passive: false });
+
+  listEl.addEventListener('touchmove', e => {
+    if (!touchGhost || !touchSrcId) return;
+    const touch = e.touches[0];
+    touchGhost.style.left = (touch.clientX - touchOffsetX) + 'px';
+    touchGhost.style.top  = (touch.clientY - touchOffsetY) + 'px';
+
+    // ゴーストを一時非表示にしてその下の要素を取得
+    touchGhost.style.display = 'none';
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    touchGhost.style.display = '';
+
+    listEl.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    const targetItem = el?.closest('[data-drag-id]');
+    if (targetItem && targetItem.dataset.dragId !== touchSrcId) {
+      targetItem.classList.add('drag-over');
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  const endTouchDrag = e => {
+    if (!touchSrcId) return;
+    touchGhost?.remove();
+    touchGhost = null;
+    listEl.querySelectorAll('.dragging, .drag-over').forEach(el => {
+      el.classList.remove('dragging', 'drag-over');
+    });
+
+    const touch = (e.changedTouches || e.touches)[0];
+    if (touch) {
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetItem = el?.closest('[data-drag-id]');
+      if (targetItem && targetItem.dataset.dragId !== touchSrcId) {
+        reorderHabit(touchSrcId, targetItem.dataset.dragId);
+      }
+    }
+    touchSrcId = null;
+  };
+  listEl.addEventListener('touchend', endTouchDrag);
+  listEl.addEventListener('touchcancel', endTouchDrag);
 }
 
-// カテゴリ内で習慣を下に移動する
-async function moveHabitDown(id) {
-  const h = habits.find(h => h.id === id);
-  if (!h) return;
-  const catHabits = habits.filter(h2 => (h2.category || 'Other') === (h.category || 'Other'));
-  const idxInCat = catHabits.findIndex(h2 => h2.id === id);
-  if (idxInCat >= catHabits.length - 1) return;
-  const next = catHabits[idxInCat + 1];
-  const gi = habits.indexOf(h);
-  const gn = habits.indexOf(next);
-  [habits[gi], habits[gn]] = [habits[gn], habits[gi]];
+// ドラッグ元をターゲットの位置に移動し、カテゴリもターゲットに合わせる
+function reorderHabit(srcId, targetId) {
+  const srcIdx = habits.findIndex(h => h.id === srcId);
+  const tgtIdx = habits.findIndex(h => h.id === targetId);
+  if (srcIdx < 0 || tgtIdx < 0) return;
+
+  habits[srcIdx].category = habits[tgtIdx].category;
+  const [moved] = habits.splice(srcIdx, 1);
+  const newTgt  = habits.findIndex(h => h.id === targetId);
+  habits.splice(newTgt, 0, moved);
+
   renderHabits();
   renderHabitsSettings();
   if (spreadsheetId) saveHabitsToSheet().catch(() => {});

@@ -680,23 +680,6 @@ body {
 .habit-category-header:first-child { margin-top: 0; }
 
 /* 並び替えボタン */
-.move-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 4px;
-  border: 1px solid var(--gray-200);
-  background: var(--surface);
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--gray-500);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  transition: background var(--transition);
-}
-.move-btn:hover:not(:disabled) { background: var(--gray-100); color: var(--gray-700); }
-.move-btn:disabled { opacity: 0.25; cursor: default; }
 
 /* カテゴリ変更セレクト */
 .category-select {
@@ -718,7 +701,34 @@ body {
   background: var(--gray-50);
   border-radius: var(--radius-sm);
   border: 1px solid var(--gray-100);
+  transition: opacity 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
+
+/* ドラッグ中: 半透明にして元の位置を示す */
+.habit-settings-item.dragging {
+  opacity: 0.3;
+}
+
+/* ドロップ先: ハイライト表示 */
+.habit-settings-item.drag-over {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+/* ドラッグハンドル */
+.drag-handle {
+  color: var(--gray-400);
+  cursor: grab;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 4px;
+  user-select: none;
+  touch-action: none;
+  flex-shrink: 0;
+}
+.drag-handle:hover { color: var(--gray-600); }
+.drag-handle:active { cursor: grabbing; }
 
 .habit-settings-info { flex: 1; }
 .habit-settings-name { font-size: 14px; font-weight: 500; color: var(--gray-800); }
