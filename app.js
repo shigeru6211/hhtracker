@@ -563,36 +563,30 @@ function renderHabits() {
     header.textContent = cat;
     list.appendChild(header);
 
-    // メモ型は1列、それ以外は2列グリッドで表示する
-    const memoHabits = catHabits.filter(h => h.type === 'memo');
-    const gridHabits = catHabits.filter(h => h.type !== 'memo');
-
-    if (gridHabits.length > 0) {
+    // 全習慣を2列グリッドで表示（メモ型はgrid-row: span 2で右列2行分）
+    if (catHabits.length > 0) {
       const grid = document.createElement('div');
       grid.className = 'habits-grid';
-      gridHabits.forEach(habit => {
+      catHabits.forEach(habit => {
         const item = document.createElement('div');
-        item.className = 'habit-item';
-        item.innerHTML = `<div class="habit-icon">${habit.icon || defaultIcon(habit.type)}</div>
-           <div class="habit-name">${escHtml(habit.name)}</div>
+        if (habit.type === 'memo') {
+          item.className = 'habit-item habit-memo';
+          item.innerHTML = `<div class="habit-item-header">
+             <div class="habit-icon">${habit.icon || defaultIcon(habit.type)}</div>
+             <div class="habit-name">${escHtml(habit.name)}</div>
+           </div>
            <div class="habit-control" id="ctrl-${habit.id}"></div>`;
+        } else {
+          item.className = 'habit-item';
+          item.innerHTML = `<div class="habit-icon">${habit.icon || defaultIcon(habit.type)}</div>
+             <div class="habit-name">${escHtml(habit.name)}</div>
+             <div class="habit-control" id="ctrl-${habit.id}"></div>`;
+        }
         grid.appendChild(item);
       });
       list.appendChild(grid);
-      gridHabits.forEach(habit => renderHabitControl(habit));
+      catHabits.forEach(habit => renderHabitControl(habit));
     }
-
-    memoHabits.forEach(habit => {
-      const item = document.createElement('div');
-      item.className = 'habit-item habit-memo';
-      item.innerHTML = `<div class="habit-item-header">
-           <div class="habit-icon">${habit.icon || defaultIcon(habit.type)}</div>
-           <div class="habit-name">${escHtml(habit.name)}</div>
-         </div>
-         <div class="habit-control" id="ctrl-${habit.id}"></div>`;
-      list.appendChild(item);
-      renderHabitControl(habit);
-    });
   });
 }
 
