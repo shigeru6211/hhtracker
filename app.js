@@ -30,6 +30,11 @@ const DEFAULT_HABITS = [
   { id: 'rc13', name: 'Meal amount',      type: 'stars', icon: '🍽️', prevDayCarryover: false, category: 'Meals' },
   { id: 'rc14', name: 'Rheumatoid',       type: 'stars', icon: '🦵',  prevDayCarryover: false, category: 'Health' },
   { id: 'rc15', name: 'Rheumatoid(Area)', type: 'memo',  icon: '🦵',  prevDayCarryover: true,  category: 'Health' },
+  { id: 'rc16', name: '朝食',            type: 'memo',  icon: '🌅',  prevDayCarryover: false, category: 'Meals' },
+  { id: 'rc17', name: '昼食',            type: 'memo',  icon: '☀️',  prevDayCarryover: false, category: 'Meals' },
+  { id: 'rc18', name: '間食',            type: 'memo',  icon: '🍪',  prevDayCarryover: false, category: 'Meals' },
+  { id: 'rc19', name: '夕食',            type: 'memo',  icon: '🌙',  prevDayCarryover: false, category: 'Meals' },
+  { id: 'rc20', name: '飲酒量',          type: 'stars', icon: '🍶',  prevDayCarryover: false, category: 'Meals' },
 ];
 const SHEET_NAME = 'Records';
 const SETTINGS_SHEET = 'Settings';
@@ -48,7 +53,6 @@ let editingHabitId = null;
 let selectedFolderId = null;       // nullはマイドライブルート
 let selectedFolderName = 'My Drive (root)';
 let folderPickerStack = [];        // フォルダ階層ナビ用スタック [{id, name}]
-let mealHistory = {};              // 食事種別ごとの入力履歴（正規化済み）
 
 // ===== EMOJI PICKER =====
 const EMOJI_LIST = [
@@ -375,7 +379,7 @@ async function initializeSheet() {
 }
 
 function buildHeaderRow() {
-  return ['日付', ...habits.map(h => h.name), '朝食', '昼食', '間食', '夕食', '飲酒量', 'メモ'];
+  return ['日付', ...habits.map(h => h.name), 'メモ'];
 }
 
 async function sheetsUpdate(values, range) {
@@ -440,6 +444,14 @@ async function loadHabitsFromSheet() {
         }
       });
       if (patched) await saveHabitsToSheet();
+
+      // DEFAULT_HABITSに存在するがシートに無い項目を末尾に追加する
+      const existingNames = new Set(habits.map(h => h.name));
+      const toAdd = DEFAULT_HABITS.filter(d => !existingNames.has(d.name));
+      if (toAdd.length > 0) {
+        habits.push(...toAdd.map(h => ({ ...h })));
+        await saveHabitsToSheet();
+      }
     }
     renderHabits();
     renderHabitsSettings();
@@ -498,23 +510,7 @@ async function saveDayData() {
     // 前日引き継ぎ値は編集されなくても保存する（引き継ぎチェーンが途切れないように）
     const todayRow = [currentDate];
     habits.forEach(h => todayRow.push(todayData[h.name] || prevDayDefaults[h.name] || ''));
-    // 類似表記を正規形に統一してから保存する
-    const breakfastVal = getCanonicalMealEntry('朝食', $('meal-breakfast').value);
-    const lunchVal     = getCanonicalMealEntry('昼食', $('meal-lunch').value);
-    const snackVal     = getCanonicalMealEntry('間食', $('meal-snack').value);
-    const dinnerVal    = getCanonicalMealEntry('夕食', $('meal-dinner').value);
-    if (breakfastVal !== $('meal-breakfast').value) $('meal-breakfast').value = breakfastVal;
-    if (lunchVal     !== $('meal-lunch').value)     $('meal-lunch').value = lunchVal;
-    if (snackVal     !== $('meal-snack').value)     $('meal-snack').value = snackVal;
-    if (dinnerVal    !== $('meal-dinner').value)    $('meal-dinner').value = dinnerVal;
-    todayRow.push(
-      breakfastVal,
-      lunchVal,
-      snackVal,
-      dinnerVal,
-      todayData['飲酒量'] || '0',
-      $('notes-input').value
-    );
+    todayRow.push($('notes-input').value);
 
     // 今日の行を更新または追加
     const rowIndex = dataRows.findIndex(r => r[0] === currentDate);
@@ -533,8 +529,6 @@ async function saveDayData() {
 
     $('save-status').textContent = 'Saved: ' + new Date().toLocaleTimeString('en-US');
     showStatus('✅ Saved', false, 2000);
-    // 保存後に食事履歴を更新してオートコンプリートに反映する
-    loadMealHistory().catch(() => {});
   } catch (e) {
     showStatus('Save failed: ' + e.message, true);
   } finally {
@@ -662,13 +656,9 @@ function defaultIcon(type) {
   return type === 'stars' ? '⭐' : type === 'memo' ? '📝' : '✅';
 }
 
-// テキスト入力フィールドの設定（前日デフォルト対応）
+// テキスト入力フィールドの設定（Notesのみ）
 const TEXT_FIELDS = [
-  { id: 'meal-breakfast', key: '朝食' },
-  { id: 'meal-lunch',     key: '昼食' },
-  { id: 'meal-snack',     key: '間食' },
-  { id: 'meal-dinner',    key: '夕食' },
-  { id: 'notes-input',   key: 'メモ' },
+  { id: 'notes-input', key: 'メモ' },
 ];
 
 function fillTodayUI() {
@@ -679,48 +669,9 @@ function fillTodayUI() {
     el.parentElement?.querySelector('.default-badge')?.remove();
   });
   habits.forEach(h => renderHabitControl(h));
-  renderAlcoholRating();
 }
 
-function renderAlcoholRating() {
-  const ctrl = $('ctrl-alcohol');
-  if (!ctrl) return;
-  const rating = parseInt(todayData['飲酒量']) || 0;
-  ctrl.innerHTML = '';
-  const div = document.createElement('div');
-  div.className = 'star-rating';
-  for (let i = 1; i <= 5; i++) {
-    const btn = document.createElement('button');
-    btn.className = 'star-btn' + (i <= rating ? ' filled' : '');
-    btn.textContent = '★';
-    btn.title = `${i}`;
-    btn.addEventListener('click', () => {
-      // 同じ星をタップすると0（なし）に戻す
-      const current = parseInt(todayData['飲酒量']) || 0;
-      todayData['飲酒量'] = current === i ? '0' : String(i);
-      renderAlcoholRating();
-      scheduleSave();
-    });
-    div.appendChild(btn);
-  }
-  ctrl.appendChild(div);
-}
 
-function updateDefaultBadge(textarea, show) {
-  const card = textarea.closest('.meal-card, .section');
-  if (!card) return;
-  let badge = card.querySelector('.default-badge');
-  if (show) {
-    if (!badge) {
-      badge = document.createElement('div');
-      badge.className = 'default-badge';
-      badge.textContent = '📋 From yesterday';
-      textarea.after(badge);
-    }
-  } else {
-    badge?.remove();
-  }
-}
 
 function clearDefaultIndicators() {
   document.querySelectorAll('.is-default').forEach(el => el.classList.remove('is-default'));
@@ -814,43 +765,41 @@ async function showHistoryDetail(dateStr) {
   let html = `<h3 style="font-size:16px;font-weight:600;margin-bottom:16px">${formatDate(dateStr)}</h3>`;
 
   if (habits.length > 0) {
-    html += '<div style="margin-bottom:12px">';
-    habits.forEach(h => {
-      const val = d[h.name] || '';
-      let display = '';
-      if (h.type === 'stars') {
-        const n = parseInt(val) || 0;
-        display = '★'.repeat(n) + '☆'.repeat(5 - n) + ` (${n}/5)`;
-      } else {
-        display = val === '1' ? '✅ Done' : '⬜ Not done';
-      }
-      html += `<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--gray-200)">
-        <span>${h.icon || defaultIcon(h.type)}</span>
-        <span style="flex:1;font-size:14px;font-weight:500">${escHtml(h.name)}</span>
-        <span style="font-size:14px;color:var(--gray-500)">${display}</span>
-      </div>`;
+    CATEGORIES.forEach(cat => {
+      const catHabits = habits.filter(h => (h.category || 'Other') === cat);
+      if (catHabits.length === 0) return;
+      html += `<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:600;color:var(--gray-600);margin-bottom:8px">${escHtml(cat)}</div>`;
+      catHabits.forEach(h => {
+        const val = d[h.name] || '';
+        let display = '';
+        if (h.type === 'stars') {
+          const n = parseInt(val) || 0;
+          display = `<span style="font-size:14px;color:var(--gray-500)">${'★'.repeat(n)}${'☆'.repeat(5-n)} (${n}/5)</span>`;
+        } else if (h.type === 'memo') {
+          display = val
+            ? `<span style="font-size:14px;color:var(--gray-700);white-space:pre-wrap">${escHtml(val)}</span>`
+            : `<span style="font-size:13px;color:var(--gray-400)">—</span>`;
+        } else {
+          display = `<span style="font-size:14px;color:var(--gray-500)">${val === '1' ? '✅ Done' : '⬜ Not done'}</span>`;
+        }
+        if (h.type === 'memo') {
+          html += `<div style="padding:6px 0;border-bottom:1px solid var(--gray-200)">
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:2px">
+              <span>${h.icon || defaultIcon(h.type)}</span>
+              <span style="font-size:13px;font-weight:500;color:var(--gray-700)">${escHtml(h.name)}</span>
+            </div>
+            <div style="padding-left:22px">${display}</div>
+          </div>`;
+        } else {
+          html += `<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--gray-200)">
+            <span>${h.icon || defaultIcon(h.type)}</span>
+            <span style="flex:1;font-size:14px;font-weight:500">${escHtml(h.name)}</span>
+            ${display}
+          </div>`;
+        }
+      });
+      html += '</div>';
     });
-    html += '</div>';
-  }
-
-  const meals = [['朝食','🌅 Breakfast'], ['昼食','☀️ Lunch'], ['間食','🍪 Snack'], ['夕食','🌙 Dinner']];
-  const hasMeal = meals.some(([k]) => d[k]);
-  if (hasMeal) {
-    html += '<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:600;color:var(--gray-600);margin-bottom:8px">Meals</div>';
-    meals.forEach(([key, label]) => {
-      if (d[key]) {
-        html += `<div style="margin-bottom:6px">
-          <span style="font-size:12px;color:var(--gray-500)">${label}</span><br>
-          <span style="font-size:14px;color:var(--gray-700)">${escHtml(d[key])}</span></div>`;
-      }
-    });
-    html += '</div>';
-  }
-
-  if (d['飲酒量'] && d['飲酒量'] !== '0') {
-    const n = parseInt(d['飲酒量']) || 0;
-    html += `<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:600;color:var(--gray-600);margin-bottom:4px">🍶 Alcohol</div>
-      <span style="font-size:14px">${'★'.repeat(n)}${'☆'.repeat(5-n)}</span></div>`;
   }
 
   if (d['メモ']) {
@@ -858,7 +807,7 @@ async function showHistoryDetail(dateStr) {
       <p style="font-size:14px;color:var(--gray-700);white-space:pre-wrap">${escHtml(d['メモ'])}</p></div>`;
   }
 
-  if (!habits.length && !hasMeal && !d['メモ']) {
+  if (!habits.length && !d['メモ']) {
     html += '<p style="color:#9ca3af;font-size:14px;text-align:center">No records</p>';
   }
 
@@ -1107,118 +1056,6 @@ async function showAppScreen() {
   renderHabitsSettings();
   updateSheetStatus();
   updateFolderStatus();
-  loadMealHistory().catch(() => {});
-}
-
-// ===== MEAL HISTORY & AUTOCOMPLETE =====
-
-const MEAL_AC_FIELDS = [
-  { id: 'meal-breakfast', suggId: 'sugg-breakfast', key: '朝食' },
-  { id: 'meal-lunch',     suggId: 'sugg-lunch',     key: '昼食' },
-  { id: 'meal-snack',     suggId: 'sugg-snack',     key: '間食' },
-  { id: 'meal-dinner',    suggId: 'sugg-dinner',    key: '夕食' },
-];
-
-// 文字列を文字単位でソートして類似判定用のキーを生成する（語順違いを同一視）
-function normalizeForSimilarity(s) {
-  return s.replace(/\s+/g, '').split('').sort().join('');
-}
-
-// 類似エントリを除去して正規形（最初に登場した表記）のみ残す
-function deduplicateSimilar(entries) {
-  const seen = new Map(); // normalizedKey → canonical
-  entries.forEach(entry => {
-    const key = normalizeForSimilarity(entry);
-    if (!seen.has(key)) seen.set(key, entry);
-  });
-  return [...seen.values()].reverse(); // 最新を上に表示
-}
-
-// 入力値が既存の正規形と類似していれば正規形に変換して返す（改行区切りの複数アイテム対応）
-function getCanonicalMealEntry(mealKey, input) {
-  if (!input.trim()) return input;
-  return input.split('\n').map(line => {
-    const s = line.trim();
-    if (!s) return s;
-    const normalized = normalizeForSimilarity(s);
-    for (const canonical of (mealHistory[mealKey] || [])) {
-      if (normalizeForSimilarity(canonical) === normalized && canonical !== s) {
-        return canonical;
-      }
-    }
-    return s;
-  }).join('\n');
-}
-
-// スプレッドシートから食事履歴を読み込む
-async function loadMealHistory() {
-  if (!spreadsheetId) return;
-  try {
-    const rows = await sheetsGet(`${SHEET_NAME}!A:Z`);
-    if (rows.length < 2) return;
-    const headers = rows[0];
-    const mealKeys = ['朝食', '昼食', '間食', '夕食'];
-    const rawHistory = {};
-    mealKeys.forEach(k => { rawHistory[k] = []; });
-
-    rows.slice(1).forEach(row => {
-      mealKeys.forEach(k => {
-        const i = headers.indexOf(k);
-        if (i >= 0 && row[i]?.trim()) {
-          // 改行でアイテムを分割して個別に履歴へ追加する
-          row[i].trim().split('\n').forEach(line => {
-            const l = line.trim();
-            if (l) rawHistory[k].push(l);
-          });
-        }
-      });
-    });
-
-    mealKeys.forEach(k => {
-      mealHistory[k] = deduplicateSimilar(rawHistory[k]);
-    });
-  } catch (e) {
-    console.warn('loadMealHistory error:', e);
-  }
-}
-
-// 食事欄のオートコンプリートイベントを設定する
-function setupMealAutocomplete() {
-  MEAL_AC_FIELDS.forEach(({ id, suggId, key }) => {
-    const ta = $(id);
-    const dropdown = $(suggId);
-    if (!ta || !dropdown) return;
-
-    const refresh = () => renderMealSuggestions(ta, dropdown, key);
-    ta.addEventListener('focus', refresh);
-    ta.addEventListener('input', refresh);
-    ta.addEventListener('blur', () => setTimeout(() => hide(dropdown), 150));
-  });
-}
-
-function renderMealSuggestions(ta, dropdown, key) {
-  const history = mealHistory[key] || [];
-  const q = ta.value.trim();
-  const matches = history.filter(h =>
-    !q || h.includes(q) || normalizeForSimilarity(h) === normalizeForSimilarity(q)
-  );
-
-  if (matches.length === 0) { hide(dropdown); return; }
-
-  dropdown.innerHTML = '';
-  matches.slice(0, 10).forEach(item => {
-    const div = document.createElement('div');
-    div.className = 'meal-suggestion-item';
-    div.textContent = item;
-    // mousedownでblurより先に発火させてドロップダウンを閉じる前に値をセットする
-    div.addEventListener('mousedown', e => {
-      e.preventDefault();
-      ta.value = item;
-      hide(dropdown);
-    });
-    dropdown.appendChild(div);
-  });
-  show(dropdown);
 }
 
 // ===== FOLDER PICKER =====
@@ -1389,13 +1226,19 @@ async function importRhythmCareDB(file) {
 
   const sheetHeader = buildHeaderRow();
 
+  // RhythmCare名→HHTracker名マッピング（DB内のフィールド名を変換）
+  const RC_NAME_MAP = { 'Meal': '朝食', 'Alcohol': '飲酒量' };
+
   // 日付ごとにシート行を構築
   const importRows = Object.entries(byDate).map(([dateStr, data]) => {
-    const habitValues = habits.map(h => data[h.name] || '');
-    // Meal→朝食、Alcohol→飲酒量 に統合
-    const breakfast = data['Meal'] || '';
-    const alcohol   = data['Alcohol'] || '0';
-    return [dateStr, ...habitValues, breakfast, '', '', '', alcohol, ''];
+    // RC_NAME_MAPで名前変換してからhabitの値を取得する
+    const habitValues = habits.map(h => {
+      if (data[h.name] !== undefined) return data[h.name];
+      // 逆引き: RhythmCare名→HHTracker名で探す
+      const rcName = Object.entries(RC_NAME_MAP).find(([, v]) => v === h.name)?.[0];
+      return rcName ? (data[rcName] || '') : '';
+    });
+    return [dateStr, ...habitValues, ''];
   });
 
   if (importRows.length === 0) throw new Error('インポートできるデータがありません');
@@ -1441,9 +1284,6 @@ function escHtml(s) {
 
 // ===== EVENT LISTENERS =====
 function attachEvents() {
-  // 食事欄オートコンプリート
-  setupMealAutocomplete();
-
   // Auth
   $('signin-btn').addEventListener('click', signIn);
   $('signout-btn').addEventListener('click', signOut);
