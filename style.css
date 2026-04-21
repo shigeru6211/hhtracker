@@ -1081,6 +1081,33 @@ body {
   }
 }
 
+/* Mealsカテゴリのメモ: 通常の2列グリッドセルとして配置（spanしない） */
+.habit-item.habit-memo-compact {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  display: flex;
+}
+.habit-item.habit-memo-compact .habit-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.habit-item.habit-memo-compact .habit-memo-input {
+  min-height: 64px;
+  height: 64px;
+  resize: none;
+  flex: none;
+}
+
+/* サジェスト表示用ラッパー */
+.meal-ctrl-wrapper {
+  position: relative;
+}
+.meal-ctrl-wrapper .meal-suggestions {
+  top: calc(100% + 2px);
+}
+
 .habit-item-header {
   display: flex;
   align-items: center;

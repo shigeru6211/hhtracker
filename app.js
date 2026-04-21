@@ -529,6 +529,7 @@ async function saveDayData() {
 
     $('save-status').textContent = 'Saved: ' + new Date().toLocaleTimeString('en-US');
     showStatus('✅ Saved', false, 2000);
+    loadMealSuggestions().catch(() => {});
   } catch (e) {
     showStatus('Save failed: ' + e.message, true);
   } finally {
@@ -569,7 +570,8 @@ function renderHabits() {
       catHabits.forEach(habit => {
         const item = document.createElement('div');
         if (habit.type === 'memo') {
-          item.className = 'habit-item habit-memo';
+          const isMealsCompact = (habit.category || 'Other') === 'Meals';
+          item.className = isMealsCompact ? 'habit-item habit-memo-compact' : 'habit-item habit-memo';
           item.innerHTML = `<div class="habit-item-header">
              <div class="habit-icon">${habit.icon || defaultIcon(habit.type)}</div>
              <div class="habit-name">${escHtml(habit.name)}</div>
@@ -623,7 +625,21 @@ function renderHabitControl(habit) {
       ctrl.querySelector('.default-badge')?.remove();
       scheduleSave();
     });
-    ctrl.appendChild(ta);
+
+    // Mealsカテゴリのメモ習慣にはオートコンプリートを追加
+    if ((habit.category || 'Other') === 'Meals') {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'meal-ctrl-wrapper';
+      wrapper.appendChild(ta);
+      const suggBox = document.createElement('div');
+      suggBox.className = 'meal-suggestions hidden';
+      wrapper.appendChild(suggBox);
+      ctrl.appendChild(wrapper);
+      setupMealSuggest(ta, suggBox, habit.name);
+    } else {
+      ctrl.appendChild(ta);
+    }
+
     if (isDefault) {
       const badge = document.createElement('div');
       badge.className = 'default-badge';
@@ -1167,6 +1183,71 @@ async function showAppScreen() {
   renderHabitsSettings();
   updateSheetStatus();
   updateFolderStatus();
+  loadMealSuggestions().catch(() => {});
+}
+
+// ===== MEAL AUTOCOMPLETE =====
+// Mealsカテゴリのメモ習慣（朝食/昼食/間食/夕食）の入力履歴
+let mealSuggestions = {}; // { habitName: [val, ...] }
+
+// シート全体から各食事列の過去入力値を収集する
+async function loadMealSuggestions() {
+  if (!spreadsheetId) return;
+  const mealNames = habits.filter(h => h.category === 'Meals' && h.type === 'memo').map(h => h.name);
+  if (mealNames.length === 0) return;
+  try {
+    const rows = await sheetsGet(`${SHEET_NAME}!A:Z`);
+    if (rows.length < 2) return;
+    const headers = rows[0];
+    mealSuggestions = {};
+    mealNames.forEach(name => {
+      const idx = headers.indexOf(name);
+      if (idx < 0) return;
+      // 重複排除・新しい順で最大100件
+      const seen = new Set();
+      const vals = [];
+      for (let i = rows.length - 1; i >= 1; i--) {
+        const v = (rows[i][idx] || '').trim();
+        if (v && !seen.has(v)) { seen.add(v); vals.push(v); }
+        if (vals.length >= 100) break;
+      }
+      mealSuggestions[name] = vals;
+    });
+  } catch (e) {
+    console.warn('loadMealSuggestions:', e);
+  }
+}
+
+// textarea にサジェストドロップダウンを接続する
+function setupMealSuggest(ta, suggBox, habitName) {
+  const show = () => {
+    const q = ta.value.trim();
+    const list = mealSuggestions[habitName] || [];
+    // 入力が空なら最近の5件、入力があれば部分一致で5件
+    const matches = q
+      ? list.filter(s => s.toLowerCase().includes(q.toLowerCase())).slice(0, 5)
+      : list.slice(0, 5);
+    if (matches.length === 0) { suggBox.classList.add('hidden'); return; }
+    suggBox.innerHTML = matches
+      .map(m => `<div class="meal-suggestion-item">${escHtml(m)}</div>`)
+      .join('');
+    suggBox.classList.remove('hidden');
+    suggBox.querySelectorAll('.meal-suggestion-item').forEach(el => {
+      el.addEventListener('mousedown', e => {
+        // blur より先に値セット（blueがhideを呼ぶ前に）
+        e.preventDefault();
+        ta.value = el.textContent;
+        todayData[habitName] = ta.value;
+        ta.classList.remove('is-default');
+        suggBox.classList.add('hidden');
+        scheduleSave();
+      });
+    });
+  };
+
+  ta.addEventListener('focus', show);
+  ta.addEventListener('input', show);
+  ta.addEventListener('blur', () => setTimeout(() => suggBox.classList.add('hidden'), 150));
 }
 
 // ===== FOLDER PICKER =====
