@@ -1504,6 +1504,26 @@ function attachEvents() {
     if (currentDate < todayStr()) loadAndShowDay(addDays(currentDate, 1));
   });
 
+  // スワイプで日付変更（水平フリック検出）
+  let swipeStartX = 0, swipeStartY = 0;
+  $('view-today').addEventListener('touchstart', e => {
+    swipeStartX = e.touches[0].clientX;
+    swipeStartY = e.touches[0].clientY;
+  }, { passive: true });
+  $('view-today').addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - swipeStartX;
+    const dy = e.changedTouches[0].clientY - swipeStartY;
+    // 水平方向が優勢かつ60px以上でフリック判定
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0) {
+      // 左フリック → 翌日
+      if (currentDate < todayStr()) loadAndShowDay(addDays(currentDate, 1));
+    } else {
+      // 右フリック → 前日
+      loadAndShowDay(addDays(currentDate, -1));
+    }
+  }, { passive: true });
+
   // 保存
   $('save-btn').addEventListener('click', saveDayData);
 

@@ -1094,8 +1094,8 @@ body {
   gap: 8px;
 }
 .habit-item.habit-memo-compact .habit-memo-input {
-  min-height: 64px;
-  height: 64px;
+  min-height: 88px;
+  height: 88px;
   resize: none;
   flex: none;
 }
