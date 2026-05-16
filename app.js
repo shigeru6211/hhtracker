@@ -15,26 +15,30 @@ const CATEGORY_MIGRATION = { '健康': 'Health', '学習': 'Learning', 'その�
 
 // RhythmCareから移行したデフォルト習慣（新規シート作成時に自動セット）
 const DEFAULT_HABITS = [
-  { id: 'rc01', name: 'Panic',             type: 'stars', icon: '❤️',  prevDayCarryover: false, category: 'Health' },
-  { id: 'rc02', name: 'Evios',             type: 'stars', icon: '💊',  prevDayCarryover: false, category: 'Health' },
-  { id: 'rc03', name: 'Journey',           type: 'check', icon: '✍️',  prevDayCarryover: false, category: 'Other' },
-  { id: 'rc04', name: 'English(Anki)',     type: 'stars', icon: '🎧',  prevDayCarryover: false, category: 'Learning' },
-  { id: 'rc05', name: 'English(ChatGPT)', type: 'stars', icon: '🗣️',  prevDayCarryover: false, category: 'Learning' },
-  { id: 'rc06', name: 'English(Podcast)', type: 'stars', icon: '🎧',  prevDayCarryover: false, category: 'Learning' },
-  { id: 'rc07', name: 'English(WSQ)',     type: 'check', icon: '🌍',  prevDayCarryover: false, category: 'Learning' },
-  { id: 'rc08', name: 'English(Speak)',   type: 'stars', icon: '🗣️',  prevDayCarryover: false, category: 'Learning' },
-  { id: 'rc09', name: 'AP',               type: 'stars', icon: '📚',  prevDayCarryover: false, category: 'Learning' },
-  { id: 'rc10', name: 'Gym/HIIT',         type: 'stars', icon: '💪',  prevDayCarryover: false, category: 'Health' },
-  { id: 'rc11', name: 'Walk/Run',         type: 'stars', icon: '🏃',  prevDayCarryover: false, category: 'Health' },
-  { id: 'rc12', name: 'Stretch',          type: 'stars', icon: '🧘',  prevDayCarryover: false, category: 'Health' },
-  { id: 'rc13', name: 'Meal amount',      type: 'stars', icon: '🍽️', prevDayCarryover: false, category: 'Meals' },
-  { id: 'rc14', name: 'Rheumatoid',       type: 'stars', icon: '🦵',  prevDayCarryover: false, category: 'Health' },
-  { id: 'rc15', name: 'Rheumatoid(Area)', type: 'memo',  icon: '🦵',  prevDayCarryover: true,  category: 'Health' },
-  { id: 'rc16', name: '朝食',            type: 'memo',  icon: '🌅',  prevDayCarryover: false, category: 'Meals' },
-  { id: 'rc17', name: '昼食',            type: 'memo',  icon: '☀️',  prevDayCarryover: false, category: 'Meals' },
-  { id: 'rc18', name: '間食',            type: 'memo',  icon: '🍪',  prevDayCarryover: false, category: 'Meals' },
-  { id: 'rc19', name: '夕食',            type: 'memo',  icon: '🌙',  prevDayCarryover: false, category: 'Meals' },
-  { id: 'rc20', name: '飲酒量',          type: 'stars', icon: '🍶',  prevDayCarryover: false, category: 'Meals' },
+  { id: 'rc01', name: 'P-Level',           type: 'stars', icon: '❤️',  prevDayCarryover: false, category: 'Health',    hidden: false, description: 'パニック発作の程度。値が大きいほど症状が重い（1=軽微、5=非常にひどい）。' },
+  { id: 'rc02', name: 'Supplement',        type: 'stars', icon: '💊',  prevDayCarryover: false, category: 'Health',    hidden: false, description: 'エビオス錠の服用回数。1回服用=1、2回=3、3回（規定量）=5。' },
+  { id: 'rc03', name: 'Journey',           type: 'check', icon: '✍️',  prevDayCarryover: false, category: 'Other',     hidden: false, description: '日記アプリ（Journey）への記録有無。習慣化が目的だったため、定着後は削除予定の項目。' },
+  { id: 'rc04', name: 'English(Anki)',     type: 'stars', icon: '🎧',  prevDayCarryover: false, category: 'Learning',  hidden: false, description: 'Ankiを使った英語学習の量。規定量で2、多いほど高い。' },
+  { id: 'rc05', name: 'English(ChatGPT)', type: 'stars', icon: '🗣️',  prevDayCarryover: false, category: 'Learning',  hidden: false, description: 'ChatGPT/Geminiの音声チャットによる英会話練習時間。10分程度で2、長いほど高い。' },
+  { id: 'rc06', name: 'English(Podcast)', type: 'stars', icon: '🎧',  prevDayCarryover: false, category: 'Learning',  hidden: false, description: '英語ポッドキャストの視聴量。規定量で2、多いほど高い。' },
+  { id: 'rc07', name: 'English(WSQ)',     type: 'check', icon: '🌍',  prevDayCarryover: false, category: 'Learning',  hidden: false, description: 'WisdomSquareが提供する英語長文読解とクイズの実施有無。平日のみ開催。' },
+  { id: 'rc08', name: 'English(Speak)',   type: 'stars', icon: '🗣️',  prevDayCarryover: false, category: 'Learning',  hidden: false, description: 'SpeakAIでの英語学習量。復習モードのみ=2、レッスン・ボイスチャット=3、組み合わせや量によってさらに高くなる。' },
+  { id: 'rc09', name: 'AP',               type: 'stars', icon: '📚',  prevDayCarryover: false, category: 'Learning',  hidden: false, description: '応用情報技術者試験の学習量。Ankiの復習のみ=2、午前・午後の過去問を実施した量で高くなる。' },
+  { id: 'rc10', name: 'Gym/HIIT',         type: 'stars', icon: '💪',  prevDayCarryover: false, category: 'Health',    hidden: false, description: 'ジム・自宅トレの強度と時間。自宅トレ=2、ジムでの通常メニュー=3、強度・時間が高いほど高くなる。' },
+  { id: 'rc11', name: 'Walk/Run',         type: 'stars', icon: '🏃',  prevDayCarryover: false, category: 'Health',    hidden: false, description: 'ウォーキング・ランニングの時間。20分=2、30分=3、長いほど高い。' },
+  { id: 'rc12', name: 'Stretch',          type: 'stars', icon: '🧘',  prevDayCarryover: false, category: 'Health',    hidden: false, description: 'ストレッチの時間。10分=3、長いほど高い。' },
+  { id: 'rc13', name: 'Meal amount',      type: 'stars', icon: '🍽️', prevDayCarryover: false, category: 'Meals',     hidden: false, description: '食事量の多さ。適量前後で中間値、多すぎると高くなる。Breakfast/Lunch/Dinnerの内容テキストから量を推測してスコアをサジェストする活用も想定。' },
+  { id: 'rc14', name: 'Rheumatoid',       type: 'stars', icon: '🦵',  prevDayCarryover: false, category: 'Health',    hidden: false, description: '関節リウマチの痛みの強度。値が大きいほど痛みが強い（1=わずか、5=非常に強い）。' },
+  { id: 'rc15', name: 'Rheumatoid(Area)', type: 'memo',  icon: '🦵',  prevDayCarryover: true,  category: 'Health',    hidden: false, description: '関節リウマチの痛みがある部位をテキストで記録。前日の値を引き継ぐ設定あり。' },
+  { id: 'rc16', name: 'Breakfast',        type: 'memo',  icon: '🌅',  prevDayCarryover: false, category: 'Meals',     hidden: false, description: '朝食の内容をテキストで記録。' },
+  { id: 'rc17', name: 'Lunch',            type: 'memo',  icon: '☀️',  prevDayCarryover: false, category: 'Meals',     hidden: false, description: '昼食の内容をテキストで記録。' },
+  { id: 'rc18', name: 'Snack',            type: 'memo',  icon: '🍪',  prevDayCarryover: false, category: 'Meals',     hidden: false, description: '間食の内容をテキストで記録。' },
+  { id: 'rc19', name: 'Dinner',           type: 'memo',  icon: '🌙',  prevDayCarryover: false, category: 'Meals',     hidden: false, description: '夕食の内容をテキストで記録。' },
+  { id: 'rc20', name: 'Alcohol',          type: 'stars', icon: '🍶',  prevDayCarryover: false, category: 'Meals',     hidden: false, description: '飲酒量の記録。飲まなければ0、量が多いほど高い（5=かなり多い）。' },
+  { id: 'rc21', name: 'Weight(kg)',        type: 'number', icon: '⚖️', prevDayCarryover: true, category: 'Health',    hidden: false, description: '朝一番トイレ後の体重（kg）。前日の値をデフォルト表示。' },
+  { id: 'rc22', name: 'Body Fat(%)',       type: 'number', icon: '💧', prevDayCarryover: true, category: 'Health',    hidden: false, description: '体組成計で計測した体脂肪率（%）。前日の値をデフォルト表示。' },
+  { id: 'rc23', name: 'Visceral Fat',      type: 'number', icon: '🫀', prevDayCarryover: true, category: 'Health',    hidden: false, description: '体組成計で計測した内臓脂肪レベル。前日の値をデフォルト表示。' },
+  { id: 'rc24', name: 'BMR(kcal)',         type: 'number', icon: '🔥', prevDayCarryover: true, category: 'Health',    hidden: false, description: '体組成計で計測した基礎代謝（kcal）。前日の値をデフォルト表示。' },
 ];
 const SHEET_NAME = 'Records';
 const SETTINGS_SHEET = 'Settings';
@@ -407,8 +411,8 @@ async function sheetsAppend(values, range) {
 async function saveHabitsToSheet() {
   if (!spreadsheetId) return;
   const rows = [
-    ['id', 'name', 'type', 'icon', 'prevDayCarryover', 'category'],
-    ...habits.map(h => [h.id, h.name, h.type, h.icon || '', h.prevDayCarryover ? 'true' : 'false', h.category || 'Other'])
+    ['id', 'name', 'type', 'icon', 'prevDayCarryover', 'category', 'description', 'hidden'],
+    ...habits.map(h => [h.id, h.name, h.type, h.icon || '', h.prevDayCarryover ? 'true' : 'false', h.category || 'Other', h.description || '', h.hidden ? 'true' : 'false'])
   ];
   await sheetsUpdate(rows, `${SETTINGS_SHEET}!A1`);
 }
@@ -416,11 +420,13 @@ async function saveHabitsToSheet() {
 async function loadHabitsFromSheet() {
   if (!spreadsheetId) return;
   try {
-    const rows = await sheetsGet(`${SETTINGS_SHEET}!A:F`);
+    const rows = await sheetsGet(`${SETTINGS_SHEET}!A:H`);
     const loaded = rows.length < 2 ? [] : rows.slice(1).filter(r => r[0]).map(r => ({
       id: r[0], name: r[1] || '', type: r[2] || 'stars', icon: r[3] || '',
       prevDayCarryover: r[4] === 'true',
-      category: CATEGORIES.includes(r[5]) ? r[5] : (CATEGORY_MIGRATION[r[5]] || 'Other')
+      category: CATEGORIES.includes(r[5]) ? r[5] : (CATEGORY_MIGRATION[r[5]] || 'Other'),
+      description: r[6] || '',
+      hidden: r[7] === 'true',
     }));
     // RhythmCareの項目が一つも含まれていない場合はデフォルトに自動移行する
     const hasRcItems = loaded.some(h => DEFAULT_HABITS.some(d => d.name === h.name));
@@ -431,8 +437,17 @@ async function loadHabitsFromSheet() {
       habits = loaded;
       // 設定パッチ適用（シート保存済みの設定を自動修正）
       const CARRYOVER_PATCHES = { 'Rheumatoid(Area)': true };
-      const CATEGORY_PATCHES  = { 'Meal amount': 'Meals' };
+      const CATEGORY_PATCHES  = { 'Meal amount': 'Meals', '朝食': 'Meals', '昼食': 'Meals', '間食': 'Meals', '夕食': 'Meals', '飲酒量': 'Meals' };
+      // IDベースの名前変更パッチ（Recordsヘッダーも同時に更新）
+      const NAME_PATCHES = {
+        'rc01': 'P-Level', 'rc02': 'Supplement',
+        'rc16': 'Breakfast', 'rc17': 'Lunch', 'rc18': 'Snack',
+        'rc19': 'Dinner',    'rc20': 'Alcohol',
+        'rc21': 'Weight(kg)', 'rc22': 'Body Fat(%)',
+        'rc23': 'Visceral Fat', 'rc24': 'BMR(kcal)',
+      };
       let patched = false;
+      const recordsRenames = {};
       habits.forEach(h => {
         if (h.name in CARRYOVER_PATCHES && h.prevDayCarryover !== CARRYOVER_PATCHES[h.name]) {
           h.prevDayCarryover = CARRYOVER_PATCHES[h.name];
@@ -442,8 +457,26 @@ async function loadHabitsFromSheet() {
           h.category = CATEGORY_PATCHES[h.name];
           patched = true;
         }
+        if (h.id in NAME_PATCHES && h.name !== NAME_PATCHES[h.id]) {
+          recordsRenames[h.name] = NAME_PATCHES[h.id];
+          h.name = NAME_PATCHES[h.id];
+          patched = true;
+        }
       });
+      if (Object.keys(recordsRenames).length > 0) await renameRecordsColumns(recordsRenames);
       if (patched) await saveHabitsToSheet();
+
+      // 名前の重複を除去（NAME_PATCHESとtoAddの二重実行で生じた重複対策）
+      const seenNames = new Set();
+      const deduped = habits.filter(h => {
+        if (seenNames.has(h.name)) return false;
+        seenNames.add(h.name);
+        return true;
+      });
+      if (deduped.length < habits.length) {
+        habits = deduped;
+        await saveHabitsToSheet();
+      }
 
       // DEFAULT_HABITSに存在するがシートに無い項目を末尾に追加する
       const existingNames = new Set(habits.map(h => h.name));
@@ -458,6 +491,13 @@ async function loadHabitsFromSheet() {
   } catch (e) {
     console.warn('loadHabits error', e);
   }
+}
+
+async function renameRecordsColumns(renames) {
+  const rows = await sheetsGet(`${SHEET_NAME}!1:1`);
+  if (!rows.length) return;
+  const newHeaders = rows[0].map(h => renames[h] || h);
+  await sheetsUpdate([newHeaders], `${SHEET_NAME}!A1`);
 }
 
 // ===== RECORDS =====
@@ -555,7 +595,7 @@ function renderHabits() {
   list.innerHTML = '';
   // カテゴリごとにグループ表示する
   CATEGORIES.forEach(cat => {
-    const catHabits = habits.filter(h => (h.category || 'Other') === cat);
+    const catHabits = habits.filter(h => (h.category || 'Other') === cat && !h.hidden);
     if (catHabits.length === 0) return;
 
     const header = document.createElement('div');
@@ -646,6 +686,21 @@ function renderHabitControl(habit) {
       badge.textContent = '📋 From yesterday';
       ctrl.appendChild(badge);
     }
+  } else if (habit.type === 'number') {
+    ctrl.innerHTML = '';
+    const isDefault = !val && !!def;
+    const inp = document.createElement('input');
+    inp.type = 'number';
+    inp.step = 'any';
+    inp.className = 'number-input' + (isDefault ? ' is-default' : '');
+    inp.value = val || def;
+    inp.placeholder = def || '—';
+    inp.addEventListener('change', () => {
+      todayData[habit.name] = inp.value;
+      inp.classList.remove('is-default');
+      scheduleSave();
+    });
+    ctrl.appendChild(inp);
   } else {
     ctrl.innerHTML = '';
     const cb = document.createElement('input');
@@ -669,7 +724,7 @@ function setStarRating(habit, rating) {
 }
 
 function defaultIcon(type) {
-  return type === 'stars' ? '⭐' : type === 'memo' ? '📝' : '✅';
+  return type === 'stars' ? '⭐' : type === 'memo' ? '📝' : type === 'number' ? '🔢' : '✅';
 }
 
 // テキスト入力フィールドの設定（Notesのみ）
@@ -704,7 +759,7 @@ async function loadAndShowDay(dateStr) {
   // メモ型習慣で前日引き継ぎが有効かつ今日が未入力のものを確認
   if (spreadsheetId) {
     const memoHabitsNeedCarryover = habits.filter(
-      h => h.type === 'memo' && h.prevDayCarryover && !todayData[h.name]
+      h => (h.type === 'memo' || h.type === 'number') && h.prevDayCarryover && !todayData[h.name]
     );
     if (memoHabitsNeedCarryover.length > 0) {
       const prev = await fetchDayData(addDays(dateStr, -1));
@@ -866,11 +921,11 @@ function renderHabitsSettings() {
       }
 
       catHabits.forEach((h, idxInCat) => {
-        const typeLabel = h.type === 'stars' ? '⭐ Stars' : h.type === 'memo' ? '📝 Memo' + (h.prevDayCarryover ? ' · carry over' : '') : '✅ Check';
+        const typeLabel = h.type === 'stars' ? '⭐ Stars' : h.type === 'memo' ? '📝 Memo' + (h.prevDayCarryover ? ' · carry over' : '') : h.type === 'number' ? '🔢 Number' + (h.prevDayCarryover ? ' · carry over' : '') : '✅ Check';
         const catOptions = CATEGORIES.map(c => `<option value="${c}"${c === cat ? ' selected' : ''}>${c}</option>`).join('');
 
         const item = document.createElement('div');
-        item.className = 'habit-settings-item';
+        item.className = 'habit-settings-item' + (h.hidden ? ' is-hidden-habit' : '');
         item.draggable = true;
         item.dataset.dragId = h.id;
         item.innerHTML = `
@@ -882,6 +937,7 @@ function renderHabitsSettings() {
           </div>
           <div class="habit-settings-actions">
             <select class="category-select" data-id="${h.id}">${catOptions}</select>
+            <button class="icon-action-btn toggle-habit-visibility" data-id="${h.id}" title="${h.hidden ? '表示する' : '非表示にする'}">${h.hidden ? '🙈' : '👁'}</button>
             <button class="icon-action-btn edit-habit" data-id="${h.id}" title="編集">✏️</button>
             <button class="icon-action-btn delete delete-habit" data-id="${h.id}" title="Delete">🗑️</button>
           </div>
@@ -897,6 +953,9 @@ function renderHabitsSettings() {
     list.querySelectorAll('.edit-habit').forEach(btn => {
       btn.addEventListener('click', () => openHabitModal(btn.dataset.id));
     });
+    list.querySelectorAll('.toggle-habit-visibility').forEach(btn => {
+      btn.addEventListener('click', () => toggleHabitVisibility(btn.dataset.id));
+    });
     list.querySelectorAll('.delete-habit').forEach(btn => {
       btn.addEventListener('click', () => deleteHabit(btn.dataset.id));
     });
@@ -908,6 +967,15 @@ function renderHabitsSettings() {
   // 表示設定のトグルを同期
   const toggle = $('prev-day-toggle');
   if (toggle) toggle.checked = appSettings.prevDayDefault;
+}
+
+async function toggleHabitVisibility(id) {
+  const h = habits.find(h => h.id === id);
+  if (!h) return;
+  h.hidden = !h.hidden;
+  renderHabits();
+  renderHabitsSettings();
+  if (spreadsheetId) await saveHabitsToSheet();
 }
 
 // ===== HABIT MODAL =====
@@ -928,7 +996,7 @@ function openHabitModal(id = null) {
       $('habit-icon-input').value = h.icon || '';
       document.querySelector(`input[name="habit-type"][value="${h.type}"]`).checked = true;
       $('habit-carryover-input').checked = h.prevDayCarryover || false;
-      if (h.type === 'memo') show($('memo-carryover-group'));
+      if (h.type === 'memo' || h.type === 'number') show($('memo-carryover-group'));
       const catVal = CATEGORY_MIGRATION[h.category] || h.category || 'Other';
       document.querySelector(`input[name="habit-category"][value="${catVal}"]`).checked = true;
     }
@@ -948,14 +1016,14 @@ async function saveHabitFromModal() {
   if (!name) { $('habit-name-input').focus(); return; }
   const type = document.querySelector('input[name="habit-type"]:checked').value;
   const icon = $('habit-icon-input').value.trim();
-  const prevDayCarryover = type === 'memo' && $('habit-carryover-input').checked;
+  const prevDayCarryover = (type === 'memo' || type === 'number') && $('habit-carryover-input').checked;
   const category = document.querySelector('input[name="habit-category"]:checked').value;
 
   if (editingHabitId) {
     const h = habits.find(h => h.id === editingHabitId);
     if (h) { h.name = name; h.type = type; h.icon = icon; h.prevDayCarryover = prevDayCarryover; h.category = category; }
   } else {
-    habits.push({ id: genId(), name, type, icon, prevDayCarryover, category });
+    habits.push({ id: genId(), name, type, icon, prevDayCarryover, category, hidden: false });
   }
 
   closeHabitModal();
@@ -1628,8 +1696,8 @@ function attachEvents() {
   // モーダル: 種類変更で前日引き継ぎオプション表示切替
   document.querySelectorAll('input[name="habit-type"]').forEach(r => {
     r.addEventListener('change', () => {
-      const isMemo = document.querySelector('input[name="habit-type"]:checked').value === 'memo';
-      isMemo ? show($('memo-carryover-group')) : hide($('memo-carryover-group'));
+      const t = document.querySelector('input[name="habit-type"]:checked').value;
+      (t === 'memo' || t === 'number') ? show($('memo-carryover-group')) : hide($('memo-carryover-group'));
     });
   });
 

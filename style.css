@@ -1147,6 +1147,43 @@ body {
   border-color: #fcd34d;
 }
 
+/* 非表示習慣（Settings一覧） */
+.habit-settings-item.is-hidden-habit {
+  opacity: 0.45;
+}
+.habit-settings-item.is-hidden-habit .habit-settings-name {
+  text-decoration: line-through;
+}
+
+/* Number type input */
+.number-input::-webkit-inner-spin-button,
+.number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.number-input[type=number] { -moz-appearance: textfield; }
+.number-input {
+  width: 72px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 15px;
+  font-family: inherit;
+  background: var(--gray-50);
+  color: var(--gray-800);
+  text-align: right;
+  transition: border-color var(--transition);
+}
+.number-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--surface);
+}
+.number-input.is-default {
+  background: #2d1f00;
+  border-color: #fcd34d;
+}
+
 /* モーダル: 前日引き継ぎチェックボックス */
 .carryover-label {
   display: flex;
