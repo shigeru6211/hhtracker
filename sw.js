@@ -1,7 +1,7 @@
 // Service Worker for 習慣・体調トラッカー
 // Android PWA インストール & オフライン対応
 
-const CACHE_NAME = 'hhtracker-v30';
+const CACHE_NAME = 'hhtracker-v31';
 const APP_FILES = [
   './',
   './index.html',

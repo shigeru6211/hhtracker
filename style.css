@@ -478,6 +478,7 @@ body {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
+  align-items: start;
 }
 
 .habit-item {
@@ -1676,28 +1677,20 @@ body {
 /* ===== Desktop Grid Column Alignments (Layout polish) ===== */
 @media (min-width: 641px) {
   /* Health category: Body compositions on the left, Rheumatoid on the right */
-  .habit-id-rc21, /* Weight(kg) */
-  .habit-id-rc22, /* Body Fat(%) */
-  .habit-id-rc23, /* Visceral Fat */
-  .habit-id-rc24 { /* BMR(kcal) */
-    grid-column: 1;
-  }
+  .habit-id-rc21 { grid-column: 1; order: 10; } /* Weight(kg) */
+  .habit-id-rc22 { grid-column: 1; order: 12; } /* Body Fat(%) */
+  .habit-id-rc23 { grid-column: 1; order: 14; } /* Visceral Fat */
+  .habit-id-rc24 { grid-column: 1; order: 16; } /* BMR(kcal) */
   
-  .habit-id-rc14, /* Rheumatoid */
-  .habit-id-rc15 { /* Rheumatoid(Area) */
-    grid-column: 2;
-  }
+  .habit-id-rc14 { grid-column: 2; order: 11; } /* Rheumatoid */
+  .habit-id-rc15 { grid-column: 2; order: 13; } /* Rheumatoid(Area) */
   
   /* Meals category: Breakfast/Lunch/Dinner on the left, Snack/Alcohol/Meal amount on the right */
-  .habit-id-rc16, /* Breakfast */
-  .habit-id-rc17, /* Lunch */
-  .habit-id-rc19 { /* Dinner */
-    grid-column: 1;
-  }
+  .habit-id-rc16 { grid-column: 1; order: 1; } /* Breakfast */
+  .habit-id-rc17 { grid-column: 1; order: 3; } /* Lunch */
+  .habit-id-rc19 { grid-column: 1; order: 5; } /* Dinner */
   
-  .habit-id-rc18, /* Snack */
-  .habit-id-rc20, /* Alcohol */
-  .habit-id-rc13 { /* Meal amount */
-    grid-column: 2;
-  }
+  .habit-id-rc18 { grid-column: 2; order: 2; } /* Snack */
+  .habit-id-rc20 { grid-column: 2; order: 4; } /* Alcohol */
+  .habit-id-rc13 { grid-column: 2; order: 6; } /* Meal amount */
 }
