@@ -1121,7 +1121,8 @@ body {
   gap: 6px;
 }
 
-.category-select {
+.category-select,
+.column-select {
   font-size: 11px;
   border: 1px solid var(--surface-border);
   border-radius: 4px;
@@ -1133,7 +1134,8 @@ body {
   outline: none;
 }
 
-.category-select:focus {
+.category-select:focus,
+.column-select:focus {
   border-color: var(--primary);
 }
 
