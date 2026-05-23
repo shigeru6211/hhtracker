@@ -1091,6 +1091,14 @@ body {
   transform: scale(1.01);
 }
 
+.habits-col.col-drag-over {
+  background: var(--primary-light);
+  outline: 2px dashed var(--primary);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+  min-height: 50px; /* Ensure empty columns are easy to drop onto */
+}
+
 .drag-handle {
   color: var(--gray-400);
   cursor: grab;

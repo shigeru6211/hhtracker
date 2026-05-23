@@ -944,7 +944,24 @@ function renderHabitsSettings() {
         return;
       }
 
-      catHabits.forEach((h, idxInCat) => {
+      // 左右の2カラムレイアウトを生成（Today画面の表示構成を模倣）
+      const columns = document.createElement('div');
+      columns.className = 'habits-columns';
+
+      const leftCol = document.createElement('div');
+      leftCol.className = 'habits-col habits-col-left';
+      leftCol.dataset.col = 'left';
+      leftCol.dataset.cat = cat;
+
+      const rightCol = document.createElement('div');
+      rightCol.className = 'habits-col habits-col-right';
+      rightCol.dataset.col = 'right';
+      rightCol.dataset.cat = cat;
+
+      columns.appendChild(leftCol);
+      columns.appendChild(rightCol);
+
+      catHabits.forEach((h) => {
         const typeLabel = h.type === 'stars' ? '⭐ Stars' : h.type === 'memo' ? '📝 Memo' + (h.prevDayCarryover ? ' · carry over' : '') : h.type === 'number' ? '🔢 Number' + (h.prevDayCarryover ? ' · carry over' : '') : '✅ Check';
         const catOptions = CATEGORIES.map(c => `<option value="${c}"${c === cat ? ' selected' : ''}>${c}</option>`).join('');
 
@@ -970,8 +987,11 @@ function renderHabitsSettings() {
             <button class="icon-action-btn delete delete-habit" data-id="${h.id}" title="Delete">🗑️</button>
           </div>
         `;
-        list.appendChild(item);
+        const targetCol = h.column === 'right' ? rightCol : leftCol;
+        targetCol.appendChild(item);
       });
+
+      list.appendChild(columns);
     });
 
     // イベント登録
@@ -1110,31 +1130,56 @@ function initHabitDragDrop(listEl) {
 
   listEl.addEventListener('dragend', () => {
     _dragFromHandle = false;
-    listEl.querySelectorAll('.dragging, .drag-over').forEach(el => {
-      el.classList.remove('dragging', 'drag-over');
+    listEl.querySelectorAll('.dragging, .drag-over, .col-drag-over').forEach(el => {
+      el.classList.remove('dragging', 'drag-over', 'col-drag-over');
     });
   });
 
   listEl.addEventListener('dragover', e => {
     e.preventDefault();
+    const src = listEl.querySelector('.dragging');
+    if (!src) return;
+
     const item = e.target.closest('[data-drag-id]');
-    const src  = listEl.querySelector('.dragging');
-    if (!item || !src || item === src) return;
-    listEl.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-    item.classList.add('drag-over');
+    if (item && item !== src) {
+      listEl.querySelectorAll('.drag-over, .col-drag-over').forEach(el => el.classList.remove('drag-over', 'col-drag-over'));
+      item.classList.add('drag-over');
+      return;
+    }
+
+    const col = e.target.closest('.habits-col');
+    if (col) {
+      listEl.querySelectorAll('.drag-over, .col-drag-over').forEach(el => el.classList.remove('drag-over', 'col-drag-over'));
+      col.classList.add('col-drag-over');
+    }
   });
 
   listEl.addEventListener('dragleave', e => {
     const item = e.target.closest('[data-drag-id]');
-    if (item && !item.contains(e.relatedTarget)) item.classList.remove('drag-over');
+    if (item && !item.contains(e.relatedTarget)) {
+      item.classList.remove('drag-over');
+    }
+    const col = e.target.closest('.habits-col');
+    if (col && !col.contains(e.relatedTarget)) {
+      col.classList.remove('col-drag-over');
+    }
   });
 
   listEl.addEventListener('drop', e => {
     e.preventDefault();
-    const targetItem = e.target.closest('[data-drag-id]');
     const srcId = e.dataTransfer.getData('text/plain');
-    if (!targetItem || !srcId || targetItem.dataset.dragId === srcId) return;
-    reorderHabit(srcId, targetItem.dataset.dragId);
+    if (!srcId) return;
+
+    const targetItem = e.target.closest('[data-drag-id]');
+    if (targetItem && targetItem.dataset.dragId !== srcId) {
+      reorderHabit(srcId, targetItem.dataset.dragId);
+      return;
+    }
+
+    const col = e.target.closest('.habits-col');
+    if (col) {
+      moveHabitToCol(srcId, col.dataset.cat, col.dataset.col);
+    }
   });
 
   // タッチ操作 (モバイル): ハンドルから長押しでドラッグ開始
@@ -1185,10 +1230,18 @@ function initHabitDragDrop(listEl) {
     const el = document.elementFromPoint(touch.clientX, touch.clientY);
     touchGhost.style.display = '';
 
-    listEl.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-    const targetItem = el?.closest('[data-drag-id]');
-    if (targetItem && targetItem.dataset.dragId !== touchSrcId) {
-      targetItem.classList.add('drag-over');
+    listEl.querySelectorAll('.drag-over, .col-drag-over').forEach(el => el.classList.remove('drag-over', 'col-drag-over'));
+    
+    if (el) {
+      const targetItem = el.closest('[data-drag-id]');
+      if (targetItem && targetItem.dataset.dragId !== touchSrcId) {
+        targetItem.classList.add('drag-over');
+      } else {
+        const col = el.closest('.habits-col');
+        if (col) {
+          col.classList.add('col-drag-over');
+        }
+      }
     }
     e.preventDefault();
   }, { passive: false });
@@ -1197,16 +1250,23 @@ function initHabitDragDrop(listEl) {
     if (!touchSrcId) return;
     touchGhost?.remove();
     touchGhost = null;
-    listEl.querySelectorAll('.dragging, .drag-over').forEach(el => {
-      el.classList.remove('dragging', 'drag-over');
+    listEl.querySelectorAll('.dragging, .drag-over, .col-drag-over').forEach(el => {
+      el.classList.remove('dragging', 'drag-over', 'col-drag-over');
     });
 
     const touch = (e.changedTouches || e.touches)[0];
     if (touch) {
       const el = document.elementFromPoint(touch.clientX, touch.clientY);
-      const targetItem = el?.closest('[data-drag-id]');
-      if (targetItem && targetItem.dataset.dragId !== touchSrcId) {
-        reorderHabit(touchSrcId, targetItem.dataset.dragId);
+      if (el) {
+        const targetItem = el.closest('[data-drag-id]');
+        if (targetItem && targetItem.dataset.dragId !== touchSrcId) {
+          reorderHabit(touchSrcId, targetItem.dataset.dragId);
+        } else {
+          const col = el.closest('.habits-col');
+          if (col) {
+            moveHabitToCol(touchSrcId, col.dataset.cat, col.dataset.col);
+          }
+        }
       }
     }
     touchSrcId = null;
@@ -1215,16 +1275,49 @@ function initHabitDragDrop(listEl) {
   listEl.addEventListener('touchcancel', endTouchDrag);
 }
 
-// ドラッグ元をターゲットの位置に移動し、カテゴリもターゲットに合わせる
+// ドラッグ元をターゲットの位置に移動し、カテゴリとカラムもターゲットに合わせる
 function reorderHabit(srcId, targetId) {
   const srcIdx = habits.findIndex(h => h.id === srcId);
   const tgtIdx = habits.findIndex(h => h.id === targetId);
   if (srcIdx < 0 || tgtIdx < 0) return;
 
   habits[srcIdx].category = habits[tgtIdx].category;
+  habits[srcIdx].column = habits[tgtIdx].column || 'left';
+  
   const [moved] = habits.splice(srcIdx, 1);
   const newTgt  = habits.findIndex(h => h.id === targetId);
   habits.splice(newTgt, 0, moved);
+
+  renderHabits();
+  renderHabitsSettings();
+  if (spreadsheetId) saveHabitsToSheet().catch(() => {});
+}
+
+// 習慣を特定のカテゴリ＆カラムに移動する（空のカラムへのドロップ対応用）
+function moveHabitToCol(srcId, targetCat, targetCol) {
+  const srcIdx = habits.findIndex(h => h.id === srcId);
+  if (srcIdx < 0) return;
+
+  habits[srcIdx].category = targetCat;
+  habits[srcIdx].column = targetCol;
+
+  const [moved] = habits.splice(srcIdx, 1);
+  
+  // カテゴリ内の最後に挿入するため、対象カテゴリの最後のインデックスを探す
+  let lastIdxInCat = -1;
+  for (let i = habits.length - 1; i >= 0; i--) {
+    if ((habits[i].category || 'Other') === targetCat) {
+      lastIdxInCat = i;
+      break;
+    }
+  }
+
+  if (lastIdxInCat >= 0) {
+    habits.splice(lastIdxInCat + 1, 0, moved);
+  } else {
+    // カテゴリが配列内に存在しない場合は最後にプッシュ
+    habits.push(moved);
+  }
 
   renderHabits();
   renderHabitsSettings();
