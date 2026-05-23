@@ -603,10 +603,20 @@ function renderHabits() {
     header.textContent = cat;
     list.appendChild(header);
 
-    // 全習慣を2列グリッドで表示（メモ型はgrid-row: span 2で右列2行分）
+    // 全習慣を2列の独立カラムで表示（隙間のないカード配置のため）
     if (catHabits.length > 0) {
-      const grid = document.createElement('div');
-      grid.className = 'habits-grid';
+      const columns = document.createElement('div');
+      columns.className = 'habits-columns';
+      
+      const leftCol = document.createElement('div');
+      leftCol.className = 'habits-col habits-col-left';
+      
+      const rightCol = document.createElement('div');
+      rightCol.className = 'habits-col habits-col-right';
+      
+      columns.appendChild(leftCol);
+      columns.appendChild(rightCol);
+
       catHabits.forEach(habit => {
         const item = document.createElement('div');
         if (habit.type === 'memo') {
@@ -625,9 +635,28 @@ function renderHabits() {
              <div class="habit-name">${escHtml(habit.name)}</div>
              <div class="habit-control" id="ctrl-${habit.id}"></div>`;
         }
-        grid.appendChild(item);
+        
+        // カラムへの振り分けロジック
+        let targetCol = leftCol;
+        if (cat === 'Health') {
+          // リウマチ関連（rc14: Rheumatoid, rc15: Rheumatoid(Area)）は右、それ以外（体組成等）は左
+          if (habit.id === 'rc14' || habit.id === 'rc15') {
+            targetCol = rightCol;
+          }
+        } else if (cat === 'Meals') {
+          // 間食(rc18)、お酒(rc20)、食事量(rc13)は右、朝昼晩(rc16,17,19)は左
+          if (habit.id === 'rc18' || habit.id === 'rc20' || habit.id === 'rc13') {
+            targetCol = rightCol;
+          }
+        } else {
+          // その他のカテゴリは均等に左右へ振り分け
+          if (leftCol.children.length > rightCol.children.length) {
+            targetCol = rightCol;
+          }
+        }
+        targetCol.appendChild(item);
       });
-      list.appendChild(grid);
+      list.appendChild(columns);
       catHabits.forEach(habit => renderHabitControl(habit));
     }
   });

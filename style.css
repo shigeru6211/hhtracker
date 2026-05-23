@@ -474,11 +474,17 @@ body {
   gap: 14px;
 }
 
-.habits-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+.habits-columns {
+  display: flex;
+  gap: 12px;
   align-items: start;
+}
+
+.habits-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .habit-item {
@@ -629,8 +635,6 @@ body {
 
 /* Memo Input in Grid */
 .habit-item.habit-memo {
-  grid-row: span 2;
-  grid-column: 2;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1638,14 +1642,10 @@ body {
     padding-bottom: 90px;
   }
   
-  /* Grid items layout on mobile */
-  .habits-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .habit-item.habit-memo {
-    grid-row: auto;
-    grid-column: auto;
+  /* Column items layout on mobile */
+  .habits-columns {
+    flex-direction: column;
+    gap: 8px;
   }
   
   /* Ensure form elements don't auto-zoom in iOS Safari */
@@ -1674,23 +1674,4 @@ body {
   .date-label { font-size: 16px; }
 }
 
-/* ===== Desktop Grid Column Alignments (Layout polish) ===== */
-@media (min-width: 641px) {
-  /* Health category: Body compositions on the left, Rheumatoid on the right */
-  .habit-id-rc21 { grid-column: 1; order: 10; } /* Weight(kg) */
-  .habit-id-rc22 { grid-column: 1; order: 12; } /* Body Fat(%) */
-  .habit-id-rc23 { grid-column: 1; order: 14; } /* Visceral Fat */
-  .habit-id-rc24 { grid-column: 1; order: 16; } /* BMR(kcal) */
-  
-  .habit-id-rc14 { grid-column: 2; order: 11; } /* Rheumatoid */
-  .habit-id-rc15 { grid-column: 2; order: 13; } /* Rheumatoid(Area) */
-  
-  /* Meals category: Breakfast/Lunch/Dinner on the left, Snack/Alcohol/Meal amount on the right */
-  .habit-id-rc16 { grid-column: 1; order: 1; } /* Breakfast */
-  .habit-id-rc17 { grid-column: 1; order: 3; } /* Lunch */
-  .habit-id-rc19 { grid-column: 1; order: 5; } /* Dinner */
-  
-  .habit-id-rc18 { grid-column: 2; order: 2; } /* Snack */
-  .habit-id-rc20 { grid-column: 2; order: 4; } /* Alcohol */
-  .habit-id-rc13 { grid-column: 2; order: 6; } /* Meal amount */
-}
+
