@@ -611,14 +611,16 @@ function renderHabits() {
         const item = document.createElement('div');
         if (habit.type === 'memo') {
           const isMealsCompact = (habit.category || 'Other') === 'Meals';
-          item.className = isMealsCompact ? 'habit-item habit-memo-compact' : 'habit-item habit-memo';
+          item.className = isMealsCompact
+            ? `habit-item habit-memo-compact habit-id-${habit.id}`
+            : `habit-item habit-memo habit-id-${habit.id}`;
           item.innerHTML = `<div class="habit-item-header">
              <div class="habit-icon">${habit.icon || defaultIcon(habit.type)}</div>
              <div class="habit-name">${escHtml(habit.name)}</div>
            </div>
            <div class="habit-control" id="ctrl-${habit.id}"></div>`;
         } else {
-          item.className = 'habit-item';
+          item.className = `habit-item habit-id-${habit.id}`;
           item.innerHTML = `<div class="habit-icon">${habit.icon || defaultIcon(habit.type)}</div>
              <div class="habit-name">${escHtml(habit.name)}</div>
              <div class="habit-control" id="ctrl-${habit.id}"></div>`;

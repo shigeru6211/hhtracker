@@ -1672,3 +1672,32 @@ body {
   .star-btn { font-size: 20px; }
   .date-label { font-size: 16px; }
 }
+
+/* ===== Desktop Grid Column Alignments (Layout polish) ===== */
+@media (min-width: 641px) {
+  /* Health category: Body compositions on the left, Rheumatoid on the right */
+  .habit-id-rc21, /* Weight(kg) */
+  .habit-id-rc22, /* Body Fat(%) */
+  .habit-id-rc23, /* Visceral Fat */
+  .habit-id-rc24 { /* BMR(kcal) */
+    grid-column: 1;
+  }
+  
+  .habit-id-rc14, /* Rheumatoid */
+  .habit-id-rc15 { /* Rheumatoid(Area) */
+    grid-column: 2;
+  }
+  
+  /* Meals category: Breakfast/Lunch/Dinner on the left, Snack/Alcohol/Meal amount on the right */
+  .habit-id-rc16, /* Breakfast */
+  .habit-id-rc17, /* Lunch */
+  .habit-id-rc19 { /* Dinner */
+    grid-column: 1;
+  }
+  
+  .habit-id-rc18, /* Snack */
+  .habit-id-rc20, /* Alcohol */
+  .habit-id-rc13 { /* Meal amount */
+    grid-column: 2;
+  }
+}
