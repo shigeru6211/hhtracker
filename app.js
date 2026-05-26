@@ -40,8 +40,11 @@ const DEFAULT_HABITS = [
   { id: 'rc23', name: 'Visceral Fat',      type: 'number', icon: '🫀', prevDayCarryover: true, category: 'Health',    hidden: false, column: 'left',  description: '体組成計で計測した内臓脂肪レベル。前日の値をデフォルト表示。' },
   { id: 'rc24', name: 'BMR(kcal)',         type: 'number', icon: '🔥', prevDayCarryover: true, category: 'Health',    hidden: false, column: 'left',  description: '体組成計で計測した基礎代謝（kcal）。前日の値をデフォルト表示。' },
 ];
-const SHEET_NAME = 'Records';
-const SETTINGS_SHEET = 'Settings';
+let actualSheetName = 'Records';
+let actualSettingsSheetName = 'Settings';
+
+Object.defineProperty(window, 'SHEET_NAME', { get: () => actualSheetName, configurable: true });
+Object.defineProperty(window, 'SETTINGS_SHEET', { get: () => actualSettingsSheetName, configurable: true });
 
 // ===== STATE =====
 let gisClient = null;
@@ -417,10 +420,41 @@ async function saveHabitsToSheet() {
   await sheetsUpdate(rows, `${SETTINGS_SHEET}!A1`);
 }
 
+async function resolveSheetNames() {
+  if (!spreadsheetId) return;
+  try {
+    const resp = await gfetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties(title)`);
+    const titles = (resp.sheets || []).map(s => s.properties.title);
+    
+    // Find the data sheet name
+    if (titles.includes('hhtracker')) {
+      actualSheetName = 'hhtracker';
+    } else if (titles.includes('Records')) {
+      actualSheetName = 'Records';
+    } else {
+      // Fallback: use first tab that is not 'Settings'
+      const fallback = titles.find(t => t !== 'Settings');
+      if (fallback) actualSheetName = fallback;
+    }
+    
+    // Find the settings sheet name
+    if (titles.includes('Settings')) {
+      actualSettingsSheetName = 'Settings';
+    } else {
+      const fallback = titles.find(t => t !== actualSheetName);
+      if (fallback) actualSettingsSheetName = fallback;
+    }
+    console.log(`Resolved sheets: data="${actualSheetName}", settings="${actualSettingsSheetName}"`);
+  } catch (e) {
+    console.warn('resolveSheetNames error', e);
+  }
+}
+
 async function loadHabitsFromSheet() {
   if (!spreadsheetId) return;
   try {
-    const rows = await sheetsGet(`${SETTINGS_SHEET}!A:I`);
+    await resolveSheetNames();
+    const rows = await sheetsGet(`${actualSettingsSheetName}!A:I`);
     const loaded = rows.length < 2 ? [] : rows.slice(1).filter(r => r[0]).map(r => ({
       id: r[0], name: r[1] || '', type: r[2] || 'stars', icon: r[3] || '',
       prevDayCarryover: r[4] === 'true',
