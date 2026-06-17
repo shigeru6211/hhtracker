@@ -60,6 +60,7 @@ let editingHabitId = null;
 let selectedFolderId = null;       // nullはマイドライブルート
 let selectedFolderName = 'My Drive (root)';
 let folderPickerStack = [];        // フォルダ階層ナビ用スタック [{id, name}]
+let cachedAllRows = null;
 
 // ===== EMOJI PICKER =====
 const EMOJI_LIST = [
@@ -206,7 +207,7 @@ function scheduleTokenRefresh(expiresIn) {
 }
 
 // ===== GOOGLE IDENTITY SERVICES =====
-function initGIS() {
+function initGIS(autoRequest = true) {
   gisClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
@@ -227,8 +228,10 @@ function initGIS() {
     },
   });
   setSigninStatus('');
-  // GIS初期化後にサイレント認証を試みる（login_hintで確実性を高める）
-  gisClient.requestAccessToken({ prompt: '', login_hint: getSavedEmail() });
+  if (autoRequest) {
+    // GIS初期化後にサイレント認証を試みる（login_hintで確実性を高める）
+    gisClient.requestAccessToken({ prompt: '', login_hint: getSavedEmail() });
+  }
 }
 
 function handleTokenResponse(resp) {
@@ -262,6 +265,7 @@ function signIn() {
 
 function signOut() {
   clearTokenCache();
+  clearAllRowsCache();
   if (accessToken) {
     google.accounts.oauth2.revoke(accessToken, () => {});
     accessToken = null;
@@ -290,14 +294,16 @@ async function fetchUserProfile() {
     showAppScreen();
   } catch (e) {
     // トークンが無効な場合はキャッシュをクリアしてログイン画面に戻す
-    clearTokenCache();
-    accessToken = null;
-    setSigninStatus('Session expired. Please sign in again.', true);
+    handleSessionExpired('Session expired. Please sign in again.');
   }
 }
 
 // ===== FETCH WRAPPER =====
 async function gfetch(url, options = {}) {
+  if (!accessToken) {
+    handleSessionExpired('No access token available. Please sign in.');
+    throw new Error('No access token available. Please sign in.');
+  }
   const res = await fetch(url, {
     ...options,
     headers: {
@@ -307,11 +313,42 @@ async function gfetch(url, options = {}) {
     }
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `HTTP ${res.status}`);
+    let err = {};
+    try {
+      err = await res.json();
+    } catch (_) {}
+    const errMsg = err.error?.message || `HTTP ${res.status}`;
+    if (res.status === 401) {
+      handleSessionExpired('Session expired. Please sign in again.');
+    }
+    throw new Error(errMsg);
   }
   if (res.status === 204) return null;
   return res.json();
+}
+
+function handleSessionExpired(msg = 'Session expired. Please sign in again.') {
+  clearTokenCache();
+  accessToken = null;
+  setSigninStatus('❌ ' + msg, true);
+  showAuthScreen();
+}
+
+function clearAllRowsCache() {
+  cachedAllRows = null;
+}
+
+async function getAllRows(forceRefresh = false) {
+  if (!spreadsheetId) return [];
+  if (cachedAllRows && !forceRefresh) return cachedAllRows;
+  try {
+    const rows = await sheetsGet(`${SHEET_NAME}!A:Z`);
+    cachedAllRows = rows;
+    return rows;
+  } catch (e) {
+    console.error('Failed to get all rows:', e);
+    throw e;
+  }
 }
 
 // ===== SPREADSHEET =====
@@ -346,6 +383,7 @@ async function createSpreadsheet() {
     await initializeSheet();
     await saveHabitsToSheet();
     updateSheetStatus();
+    clearAllRowsCache();
     showStatus(`✅ Created "${name}"`, false, 3000);
   } catch (e) {
     showStatus('Create failed: ' + e.message, true);
@@ -372,6 +410,7 @@ async function connectToSheet(id, name) {
   spreadsheetName = name;
   saveSheetData();
   try {
+    clearAllRowsCache();
     await loadHabitsFromSheet();
     updateSheetStatus();
     showStatus(`✅ Connected to "${name}"`, false, 3000);
@@ -612,6 +651,7 @@ async function saveDayData() {
 
     $('save-status').textContent = 'Saved: ' + new Date().toLocaleTimeString('en-US');
     showStatus('✅ Saved', false, 2000);
+    clearAllRowsCache();
     loadMealSuggestions().catch(() => {});
   } catch (e) {
     showStatus('Save failed: ' + e.message, true);
@@ -828,6 +868,235 @@ async function loadAndShowDay(dateStr) {
   }
 
   fillTodayUI();
+}
+
+// ===== UI: ANALYTICS VIEW =====
+function getSplinePath(pts) {
+  if (pts.length === 0) return '';
+  if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y} L ${pts[0].x} ${pts[0].y}`;
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || p2;
+
+    const cp1x = p1.x + (p2.x - p0.x) * 0.15;
+    const cp1y = p1.y + (p2.y - p0.y) * 0.15;
+    const cp2x = p2.x - (p3.x - p1.x) * 0.15;
+    const cp2y = p2.y - (p3.y - p1.y) * 0.15;
+
+    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+  }
+  return d;
+}
+
+async function renderAnalyticsView() {
+  const container = $('chart-container');
+  if (!container) return;
+
+  // 5段階評価（stars）の習慣を抽出
+  const starHabits = habits.filter(h => h.type === 'stars' && !h.hidden);
+  const select = $('analytics-habit-select');
+  
+  if (starHabits.length === 0) {
+    select.innerHTML = '<option value="">(No 5-star habits)</option>';
+    container.innerHTML = '<div style="text-align:center;color:var(--gray-500);padding-top:100px;">No 5-star habits registered.</div>';
+    $('stat-avg').textContent = '—';
+    $('stat-max').textContent = '—';
+    $('stat-min').textContent = '—';
+    $('stat-days').textContent = '—';
+    return;
+  }
+
+  // セレクトボックスの再構築
+  const prevSelected = select.value;
+  select.innerHTML = '';
+  starHabits.forEach(h => {
+    const opt = document.createElement('option');
+    opt.value = h.id;
+    opt.textContent = `${h.icon || '⭐'} ${h.name}`;
+    if (h.id === prevSelected) opt.selected = true;
+    select.appendChild(opt);
+  });
+
+  const selectedHabitId = select.value || starHabits[0].id;
+  const selectedHabit = starHabits.find(h => h.id === selectedHabitId);
+  if (!selectedHabit) return;
+
+  const periodDays = parseInt($('analytics-period-select').value) || 30;
+
+  // ローカル読み込み中表示
+  container.innerHTML = '<div style="text-align:center;color:var(--gray-500);padding-top:100px;"><span class="loading-spinner"></span> Loading data...</div>';
+
+  try {
+    const rows = await getAllRows();
+    if (rows.length < 2) {
+      container.innerHTML = '<div style="text-align:center;color:var(--gray-500);padding-top:100px;">No data in sheet.</div>';
+      return;
+    }
+
+    const headers = rows[0];
+    const valIdx = headers.indexOf(selectedHabit.name);
+    if (valIdx < 0) {
+      container.innerHTML = `<div style="text-align:center;color:var(--gray-500);padding-top:100px;">Column "${selectedHabit.name}" not found.</div>`;
+      return;
+    }
+
+    // 期間内の日付でフィルタ
+    const today = todayStr();
+    const startDateStr = addDays(today, -periodDays + 1);
+    const startDate = parseDate(startDateStr);
+    const endDate = parseDate(today);
+    const timeRange = endDate.getTime() - startDate.getTime();
+
+    // データ行の抽出とパース
+    const rawData = rows.slice(1).filter(r => r[0]);
+    const parsedData = [];
+    rawData.forEach(row => {
+      const dateStr = row[0];
+      if (dateStr >= startDateStr && dateStr <= today) {
+        const val = parseInt(row[valIdx]);
+        if (!isNaN(val) && val >= 1 && val <= 5) {
+          parsedData.push({
+            dateStr,
+            date: parseDate(dateStr),
+            val
+          });
+        }
+      }
+    });
+
+    // 日付順にソート
+    parsedData.sort((a, b) => a.date - b.date);
+
+    // 統計計算
+    if (parsedData.length === 0) {
+      container.innerHTML = '<div style="text-align:center;color:var(--gray-500);padding-top:100px;">No records in this period.</div>';
+      $('stat-avg').textContent = '—';
+      $('stat-max').textContent = '—';
+      $('stat-min').textContent = '—';
+      $('stat-days').textContent = '0';
+      return;
+    }
+
+    const sum = parsedData.reduce((acc, d) => acc + d.val, 0);
+    const avg = sum / parsedData.length;
+    const max = Math.max(...parsedData.map(d => d.val));
+    const min = Math.min(...parsedData.map(d => d.val));
+
+    $('stat-avg').textContent = avg.toFixed(2);
+    $('stat-max').textContent = max;
+    $('stat-min').textContent = min;
+    $('stat-days').textContent = parsedData.length;
+
+    // SVG 座標計算
+    const width = container.clientWidth || 600;
+    const height = 280;
+    const margin = { top: 20, right: 20, bottom: 30, left: 35 };
+
+    const points = parsedData.map(d => {
+      const tRatio = timeRange > 0 ? (d.date.getTime() - startDate.getTime()) / timeRange : 0.5;
+      const x = margin.left + tRatio * (width - margin.left - margin.right);
+      const y = margin.top + (5 - d.val) * (height - margin.top - margin.bottom) / 4;
+      return { x, y, dateStr: d.dateStr, val: d.val };
+    });
+
+    // SVG構築
+    let svgHtml = `<svg class="chart-svg" viewBox="0 0 ${width} ${height}" width="100%" height="100%">`;
+    svgHtml += `
+      <defs>
+        <linearGradient id="chart-gradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--primary)" stop-opacity="0.4"/>
+          <stop offset="100%" stop-color="var(--primary)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+    `;
+
+    // 水平グリッド線 & Y軸ラベル (1〜5)
+    for (let i = 1; i <= 5; i++) {
+      const y = margin.top + (5 - i) * (height - margin.top - margin.bottom) / 4;
+      // グリッド線
+      svgHtml += `<line class="chart-grid-line" x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}" />`;
+      // ラベル
+      svgHtml += `<text class="chart-label y-axis" x="${margin.left - 8}" y="${y}">${i}</text>`;
+    }
+
+    // 垂直グリッド線 & X軸ラベル (日付)
+    let labelStep = 5;
+    if (periodDays <= 7) labelStep = 1;
+    else if (periodDays <= 30) labelStep = 5;
+    else if (periodDays <= 90) labelStep = 15;
+
+    for (let i = 0; i < periodDays; i++) {
+      if (i % labelStep === 0) {
+        const curDateStr = addDays(startDateStr, i);
+        const curDate = parseDate(curDateStr);
+        const tRatio = timeRange > 0 ? (curDate.getTime() - startDate.getTime()) / timeRange : 0.5;
+        const x = margin.left + tRatio * (width - margin.left - margin.right);
+        
+        // 垂直線
+        svgHtml += `<line class="chart-grid-line" x1="${x}" y1="${margin.top}" x2="${x}" y2="${height - margin.bottom}" />`;
+        // ラベル
+        svgHtml += `<text class="chart-label" x="${x}" y="${height - margin.bottom + 15}">${formatDateShort(curDateStr)}</text>`;
+      }
+    }
+
+    // 軸線
+    svgHtml += `<line class="chart-axis-line" x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" />`;
+    svgHtml += `<line class="chart-axis-line" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}" />`;
+
+    // パスの生成
+    if (points.length >= 2) {
+      const linePath = getSplinePath(points);
+      const areaPath = `${linePath} L ${points[points.length - 1].x} ${height - margin.bottom} L ${points[0].x} ${height - margin.bottom} Z`;
+      
+      svgHtml += `<path class="chart-path-area" d="${areaPath}" />`;
+      svgHtml += `<path class="chart-path-line" d="${linePath}" />`;
+    } else if (points.length === 1) {
+      // 1点のみの場合はパスの代わりに丸を描画
+      svgHtml += `<circle class="chart-point" cx="${points[0].x}" cy="${points[0].y}" r="5" data-date="${points[0].dateStr}" data-val="${points[0].val}" />`;
+    }
+
+    // 点の描画 (複数点の場合)
+    if (points.length >= 2) {
+      points.forEach(p => {
+        svgHtml += `<circle class="chart-point" cx="${p.x}" cy="${p.y}" r="4" data-date="${p.dateStr}" data-val="${p.val}" />`;
+      });
+    }
+
+    svgHtml += `</svg>`;
+    container.innerHTML = svgHtml;
+
+    // ツールチップ要素のセットアップ
+    let tooltip = container.querySelector('.chart-tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.className = 'chart-tooltip';
+      container.appendChild(tooltip);
+    }
+
+    // イベントバインド
+    container.querySelectorAll('.chart-point').forEach(circle => {
+      circle.addEventListener('mouseenter', e => {
+        const dStr = e.target.getAttribute('data-date');
+        const score = e.target.getAttribute('data-val');
+        const cx = parseFloat(e.target.getAttribute('cx'));
+        const cy = parseFloat(e.target.getAttribute('cy'));
+        
+        tooltip.innerHTML = `<span style="font-weight:600">${dStr}</span><br>Score: <span style="color:var(--primary);font-weight:700">${score}</span>`;
+        tooltip.style.left = cx + 'px';
+        tooltip.style.top = (cy - 10) + 'px'; // 円の上にツールチップを配置
+        tooltip.classList.add('visible');
+      });
+      circle.addEventListener('mouseleave', () => {
+        tooltip.classList.remove('visible');
+      });
+    });
+
+  } catch (e) {
+    container.innerHTML = `<div style="text-align:center;color:var(--danger);padding-top:100px;">Failed to load data: ${e.message}</div>`;
+  }
 }
 
 // ===== UI: HISTORY VIEW =====
@@ -1388,6 +1657,7 @@ function switchView(view) {
   document.querySelectorAll(`[data-view="${view}"]`).forEach(b => b.classList.add('active'));
 
   if (view === 'history') renderHistoryCalendar();
+  if (view === 'analytics') renderAnalyticsView();
   if (view === 'settings') { updateSheetStatus(); renderHabitsSettings(); }
 }
 
@@ -1884,6 +2154,10 @@ function attachEvents() {
     // IME変換中のEnterキーは無視する（日本語入力の確定と保存が競合するため）
     if (e.key === 'Enter' && !e.isComposing) saveHabitFromModal();
   });
+
+  // Analytics: 項目と期間選択の変更イベント
+  $('analytics-habit-select').addEventListener('change', () => renderAnalyticsView());
+  $('analytics-period-select').addEventListener('change', () => renderAnalyticsView());
 }
 
 // ===== INIT =====
@@ -1904,12 +2178,12 @@ window.addEventListener('load', () => {
     accessToken = cachedToken;
     fetchUserProfile();
     // バックグラウンドでGISを準備してトークン期限切れ時の再取得に備える
-    loadGISScript(() => initGIS());
+    loadGISScript(() => initGIS(false));
     return;
   }
 
   // キャッシュなし → GISを読み込んでサイレント認証を試みる
-  loadGISScript(() => initGIS());
+  loadGISScript(() => initGIS(true));
 });
 
 function loadGISScript(onload) {

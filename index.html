@@ -54,6 +54,7 @@
           <!-- Desktop nav (mobile uses bottom nav) -->
           <button class="nav-btn active" data-view="today">Today</button>
           <button class="nav-btn" data-view="history">History</button>
+          <button class="nav-btn" data-view="analytics">Analytics</button>
           <button class="nav-btn" data-view="settings">Settings</button>
           <div class="user-menu">
             <img id="user-avatar" class="user-avatar" src="" alt="User">
@@ -119,6 +120,50 @@
         </div>
         <div id="history-calendar" class="history-calendar"></div>
         <div id="history-detail" class="history-detail hidden"></div>
+      </div>
+    </main>
+
+    <!-- ===== Analytics View ===== -->
+    <main id="view-analytics" class="view">
+      <div class="container">
+        <div class="view-header">
+          <h2>Analytics</h2>
+          <div class="analytics-controls">
+            <select id="analytics-habit-select" class="select"></select>
+            <select id="analytics-period-select" class="select">
+              <option value="7">Last 7 Days</option>
+              <option value="30" selected>Last 30 Days</option>
+              <option value="90">Last 90 Days</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="section chart-section">
+          <div class="chart-container" id="chart-container">
+            <!-- Custom SVG will be generated here -->
+          </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="analytics-stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Average Score</div>
+            <div class="stat-value" id="stat-avg">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Max Score</div>
+            <div class="stat-value" id="stat-max">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Min Score</div>
+            <div class="stat-value" id="stat-min">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Record Days</div>
+            <div class="stat-value" id="stat-days">—</div>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -200,6 +245,10 @@
       <button class="bottom-nav-btn" data-view="history">
         <span class="bnav-icon">📅</span>
         <span class="bnav-label">History</span>
+      </button>
+      <button class="bottom-nav-btn" data-view="analytics">
+        <span class="bnav-icon">📊</span>
+        <span class="bnav-label">Analytics</span>
       </button>
       <button class="bottom-nav-btn" data-view="settings">
         <span class="bnav-icon">⚙️</span>
