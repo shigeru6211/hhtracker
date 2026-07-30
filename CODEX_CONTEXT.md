@@ -9,6 +9,22 @@ This document provides context and development guidelines for Codex to maintain 
 * **Repository (Deployment)**: `https://github.com/shigeru6211/hhtracker.git` (main branch)
 * **Design Theme**: Midnight Glassmorphism (dark gradient bg, semi-transparent white borders with `backdrop-filter: blur(16px)`).
 
+## 2. Directory & Key Files Path
+* **Development Directory (Workspace Root)**: `/Users/sotani/obsidian_project/src/apps/hhtracker/`
+* **Key Files**:
+  * **Main HTML & Modals**: [index.html](file:///Users/sotani/obsidian_project/src/apps/hhtracker/index.html)
+  * **Core Logic (Auth/API/UI)**: [app.js](file:///Users/sotani/obsidian_project/src/apps/hhtracker/app.js)
+  * **Styles (Midnight Theme)**: [style.css](file:///Users/sotani/obsidian_project/src/apps/hhtracker/style.css)
+  * **Service Worker (PWA)**: [sw.js](file:///Users/sotani/obsidian_project/src/apps/hhtracker/sw.js)
+  * **PWA Manifest**: [manifest.json](file:///Users/sotani/obsidian_project/src/apps/hhtracker/manifest.json)
+  * **Handover context (This file)**: [CODEX_CONTEXT.md](file:///Users/sotani/obsidian_project/src/apps/hhtracker/CODEX_CONTEXT.md)
+* **Deployment Script**:
+  * [deploy_hhtracker.sh](file:///Users/sotani/obsidian_project/scripts/deploy_hhtracker.sh)
+* **OAuth Secrets & Cache (Excluded from git)**:
+  * `/Users/sotani/obsidian_project/src/apps/hhtracker/client_secret_*.json`
+  * `/Users/sotani/obsidian_project/src/apps/hhtracker/client_secret_cli.json`
+  * `/Users/sotani/obsidian_project/src/apps/hhtracker/token_cli.json`
+
 ---
 
 ## 2. Spreadsheet Database Structure
