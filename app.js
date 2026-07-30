@@ -602,15 +602,45 @@ async function fetchDayData(dateStr) {
   }
 }
 
+let isSaving = false;
+let savePending = false;
+
 async function saveDayData() {
   if (!spreadsheetId) {
     showStatus('Please configure a spreadsheet first', true);
     return;
   }
+  if (isSaving) {
+    savePending = true;
+    return;
+  }
+  isSaving = true;
+  savePending = false;
+
   $('save-btn').disabled = true;
   $('save-btn').innerHTML = '<span class="loading-spinner"></span> Saving...';
 
   try {
+    // DOM-to-State 強制同期 (安全のためのガード)
+    // is-default クラスが付いていない（ユーザーが編集した）要素から直接値を state に収集
+    habits.forEach(h => {
+      const ctrl = $('ctrl-' + h.id);
+      if (ctrl) {
+        const el = ctrl.querySelector('input, textarea');
+        if (el && !el.classList.contains('is-default')) {
+          if (h.type === 'checkbox') {
+            todayData[h.name] = el.checked ? '1' : '0';
+          } else {
+            todayData[h.name] = el.value;
+          }
+        }
+      }
+    });
+    const notesEl = $('notes-input');
+    if (notesEl) {
+      todayData['メモ'] = notesEl.value;
+    }
+
     const newHeader = buildHeaderRow();
 
     // 全データを読み込んでヘッダーの変化を検出する
@@ -621,10 +651,10 @@ async function saveDayData() {
     // 習慣の追加・削除・並び替えでヘッダーが変わった場合、既存データを新スキーマに移行する
     if (JSON.stringify(oldHeader) !== JSON.stringify(newHeader)) {
       dataRows = dataRows.map(row =>
-        newHeader.map(col => {
-          const i = oldHeader.indexOf(col);
-          return i >= 0 ? (row[i] || '') : '';
-        })
+         newHeader.map(col => {
+           const i = oldHeader.indexOf(col);
+           return i >= 0 ? (row[i] || '') : '';
+         })
       );
     }
 
@@ -632,7 +662,7 @@ async function saveDayData() {
     // 前日引き継ぎ値は編集されなくても保存する（引き継ぎチェーンが途切れないように）
     const todayRow = [currentDate];
     habits.forEach(h => todayRow.push(todayData[h.name] || prevDayDefaults[h.name] || ''));
-    todayRow.push($('notes-input').value);
+    todayRow.push(todayData['メモ'] || '');
 
     // 今日の行を更新または追加
     const rowIndex = dataRows.findIndex(r => r[0] === currentDate);
@@ -658,6 +688,11 @@ async function saveDayData() {
   } finally {
     $('save-btn').disabled = false;
     $('save-btn').innerHTML = '💾 Save';
+    isSaving = false;
+    if (savePending) {
+      savePending = false;
+      setTimeout(() => saveDayData(), 500);
+    }
   }
 }
 
@@ -793,7 +828,7 @@ function renderHabitControl(habit) {
     inp.className = 'number-input' + (isDefault ? ' is-default' : '');
     inp.value = val || def;
     inp.placeholder = def || '—';
-    inp.addEventListener('change', () => {
+    inp.addEventListener('input', () => {
       todayData[habit.name] = inp.value;
       inp.classList.remove('is-default');
       scheduleSave();
