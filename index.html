@@ -138,6 +138,67 @@
           </div>
         </div>
 
+        <!-- Performance Dashboard -->
+        <section class="analytics-dashboard">
+          <div class="dashboard-hero">
+            <div class="momentum-copy">
+              <span class="dashboard-kicker">Momentum</span>
+              <strong id="dash-momentum-score">—</strong>
+              <small id="dash-momentum-label">Last 7 days</small>
+            </div>
+            <div class="momentum-ring" id="dash-momentum-ring" style="--progress:0">
+              <div class="momentum-ring-inner">
+                <span id="dash-momentum-percent">—</span>
+                <small>active</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-metrics">
+            <div class="dashboard-metric">
+              <span>Today</span>
+              <strong id="dash-today-score">—</strong>
+            </div>
+            <div class="dashboard-metric">
+              <span>Week</span>
+              <strong id="dash-week-score">—</strong>
+            </div>
+            <div class="dashboard-metric">
+              <span>Streak</span>
+              <strong id="dash-streak">—</strong>
+            </div>
+            <div class="dashboard-metric">
+              <span>Logged</span>
+              <strong id="dash-logged-days">—</strong>
+            </div>
+          </div>
+
+          <div class="dashboard-panel">
+            <div class="dashboard-panel-head">
+              <span>Record Map</span>
+              <small id="dash-heatmap-range">—</small>
+            </div>
+            <div id="achievement-heatmap" class="achievement-heatmap"></div>
+          </div>
+
+          <div class="dashboard-split">
+            <div class="dashboard-panel">
+              <div class="dashboard-panel-head">
+                <span>Categories</span>
+                <small>score density</small>
+              </div>
+              <div id="category-dashboard" class="category-dashboard"></div>
+            </div>
+            <div class="dashboard-panel">
+              <div class="dashboard-panel-head">
+                <span>Body Metrics</span>
+                <small>latest values</small>
+              </div>
+              <div id="number-dashboard" class="number-dashboard"></div>
+            </div>
+          </div>
+        </section>
+
         <!-- Chart -->
         <div class="section chart-section">
           <div class="chart-container" id="chart-container">

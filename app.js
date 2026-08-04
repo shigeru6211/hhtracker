@@ -926,6 +926,130 @@ function getSplinePath(pts) {
   return d;
 }
 
+function getActiveHabitValue(habit, value) {
+  const v = String(value || '').trim();
+  if (!v) return 0;
+  if (habit.type === 'stars') {
+    const n = parseInt(v, 10);
+    return !isNaN(n) && n > 0 ? Math.min(n / 5, 1) : 0;
+  }
+  if (habit.type === 'check') {
+    return v === '1' || v.toLowerCase() === 'true' ? 1 : 0;
+  }
+  return 1;
+}
+
+function getRowScore(rowData, visibleHabits) {
+  if (visibleHabits.length === 0) return 0;
+  const total = visibleHabits.reduce((sum, h) => sum + getActiveHabitValue(h, rowData[h.name]), 0);
+  return total / visibleHabits.length;
+}
+
+function renderMiniSparkline(values) {
+  if (values.length < 2) return '';
+  const width = 86;
+  const height = 30;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const pts = values.map((val, i) => {
+    const x = (i / (values.length - 1)) * width;
+    const y = height - ((val - min) / range) * (height - 5) - 2.5;
+    return { x, y };
+  });
+  const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  return `<svg class="metric-sparkline" viewBox="0 0 ${width} ${height}" aria-hidden="true"><path d="${d}" /></svg>`;
+}
+
+function setDashboardText(id, value) {
+  const el = $(id);
+  if (el) el.textContent = value;
+}
+
+function renderAnalyticsDashboard(rows, periodDays) {
+  const visibleHabits = habits.filter(h => !h.hidden);
+  const headers = rows[0] || [];
+  const rowMap = new Map();
+  rows.slice(1).forEach(row => {
+    if (!row[0]) return;
+    const data = {};
+    headers.forEach((h, i) => { data[h] = row[i] || ''; });
+    rowMap.set(row[0], data);
+  });
+
+  const today = todayStr();
+  const startDateStr = addDays(today, -periodDays + 1);
+  const last7 = Array.from({ length: 7 }, (_, i) => addDays(today, -6 + i));
+  const periodDates = Array.from({ length: periodDays }, (_, i) => addDays(startDateStr, i));
+  const activeDates = periodDates.filter(date => getRowScore(rowMap.get(date) || {}, visibleHabits) > 0);
+  const todayScore = getRowScore(rowMap.get(today) || {}, visibleHabits);
+  const weekScore = last7.reduce((sum, date) => sum + getRowScore(rowMap.get(date) || {}, visibleHabits), 0) / 7;
+
+  let streak = 0;
+  for (let d = today; ; d = addDays(d, -1)) {
+    if (getRowScore(rowMap.get(d) || {}, visibleHabits) <= 0) break;
+    streak += 1;
+  }
+
+  const momentumPct = Math.round(weekScore * 100);
+  setDashboardText('dash-momentum-score', momentumPct >= 70 ? 'On track' : momentumPct >= 35 ? 'Building' : 'Quiet');
+  setDashboardText('dash-momentum-label', `${activeDates.length}/${periodDays} days in view`);
+  setDashboardText('dash-momentum-percent', `${momentumPct}%`);
+  setDashboardText('dash-today-score', `${Math.round(todayScore * 100)}%`);
+  setDashboardText('dash-week-score', `${momentumPct}%`);
+  setDashboardText('dash-streak', `${streak}d`);
+  setDashboardText('dash-logged-days', `${activeDates.length}d`);
+  setDashboardText('dash-heatmap-range', `${formatDateShort(startDateStr)} - ${formatDateShort(today)}`);
+
+  const ring = $('dash-momentum-ring');
+  if (ring) ring.style.setProperty('--progress', String(momentumPct));
+
+  const heatmap = $('achievement-heatmap');
+  if (heatmap) {
+    heatmap.innerHTML = periodDates.map(date => {
+      const score = getRowScore(rowMap.get(date) || {}, visibleHabits);
+      const level = score === 0 ? 0 : Math.max(1, Math.ceil(score * 4));
+      const pct = Math.round(score * 100);
+      return `<div class="heatmap-cell level-${level}" title="${date}: ${pct}%"><span>${parseDate(date).getDate()}</span></div>`;
+    }).join('');
+  }
+
+  const categoryEl = $('category-dashboard');
+  if (categoryEl) {
+    categoryEl.innerHTML = CATEGORIES.map(cat => {
+      const catHabits = visibleHabits.filter(h => (h.category || 'Other') === cat);
+      const avg = catHabits.length
+        ? periodDates.reduce((sum, date) => sum + getRowScore(rowMap.get(date) || {}, catHabits), 0) / periodDates.length
+        : 0;
+      const pct = Math.round(avg * 100);
+      return `<div class="category-meter">
+        <div class="category-meter-top"><span>${escHtml(cat)}</span><strong>${pct}%</strong></div>
+        <div class="category-meter-track"><div style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+  }
+
+  const numberEl = $('number-dashboard');
+  if (numberEl) {
+    const numberHabits = visibleHabits.filter(h => h.type === 'number').slice(0, 4);
+    if (numberHabits.length === 0) {
+      numberEl.innerHTML = '<div class="dashboard-empty">No number metrics</div>';
+    } else {
+      numberEl.innerHTML = numberHabits.map(h => {
+        const values = periodDates
+          .map(date => parseFloat(rowMap.get(date)?.[h.name]))
+          .filter(v => !isNaN(v));
+        const latest = values.length ? values[values.length - 1] : null;
+        return `<div class="number-metric">
+          <div><span>${escHtml(h.icon || defaultIcon(h.type))}</span><strong>${escHtml(h.name)}</strong></div>
+          <div class="number-metric-value">${latest === null ? '—' : latest.toLocaleString('en-US', { maximumFractionDigits: 1 })}</div>
+          ${renderMiniSparkline(values.slice(-14))}
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
 async function renderAnalyticsView() {
   const container = $('chart-container');
   if (!container) return;
@@ -933,6 +1057,17 @@ async function renderAnalyticsView() {
   // 5段階評価（stars）の習慣を抽出
   const starHabits = habits.filter(h => h.type === 'stars' && !h.hidden);
   const select = $('analytics-habit-select');
+  const periodDays = parseInt($('analytics-period-select').value) || 30;
+
+  let rows = [];
+  try {
+    rows = await getAllRows();
+    renderAnalyticsDashboard(rows, periodDays);
+  } catch (e) {
+    renderAnalyticsDashboard([], periodDays);
+    container.innerHTML = `<div style="text-align:center;color:var(--danger);padding-top:100px;">Failed to load data: ${e.message}</div>`;
+    return;
+  }
   
   if (starHabits.length === 0) {
     select.innerHTML = '<option value="">(No 5-star habits)</option>';
@@ -959,13 +1094,10 @@ async function renderAnalyticsView() {
   const selectedHabit = starHabits.find(h => h.id === selectedHabitId);
   if (!selectedHabit) return;
 
-  const periodDays = parseInt($('analytics-period-select').value) || 30;
-
   // ローカル読み込み中表示
   container.innerHTML = '<div style="text-align:center;color:var(--gray-500);padding-top:100px;"><span class="loading-spinner"></span> Loading data...</div>';
 
   try {
-    const rows = await getAllRows();
     if (rows.length < 2) {
       container.innerHTML = '<div style="text-align:center;color:var(--gray-500);padding-top:100px;">No data in sheet.</div>';
       return;
